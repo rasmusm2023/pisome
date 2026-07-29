@@ -1,0 +1,223 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root {
+  --pisome-blue: #2563eb;
+  --pisome-blue-dark: #1d4ed8;
+  --pisome-navy: #0b1f3a;
+  --pisome-alice: #eef4ff;
+  --pisome-sky: #dbe7ff;
+  --pisome-accent: #0d9488;
+  --pisome-accent-hover: #0f766e;
+  --pisome-surface: #f7f9fc;
+  --pisome-border: #d7e0ef;
+  --pisome-muted: #5b6b85;
+  --pisome-success: #059669;
+  --background: #f7f9fc;
+  --foreground: #0b1f3a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-pisome-blue: var(--pisome-blue);
+  --color-pisome-blue-dark: var(--pisome-blue-dark);
+  --color-pisome-navy: var(--pisome-navy);
+  --color-pisome-alice: var(--pisome-alice);
+  --color-pisome-sky: var(--pisome-sky);
+  --color-pisome-accent: var(--pisome-accent);
+  --color-pisome-accent-hover: var(--pisome-accent-hover);
+  --color-pisome-surface: var(--pisome-surface);
+  --color-pisome-border: var(--pisome-border);
+  --color-pisome-muted: var(--pisome-muted);
+  --color-pisome-success: var(--pisome-success);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: var(--pisome-sky);
+  color: var(--pisome-navy);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marker-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gallery-fade {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out both;
+}
+
+.animate-marker-settle {
+  animation: marker-settle 0.35s ease-out both;
+}
+
+.animate-gallery-fade {
+  animation: gallery-fade 0.35s ease-out both;
+}
+
+.pisome-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(37, 99, 235, 0.18), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(13, 148, 136, 0.12), transparent 50%),
+    linear-gradient(180deg, #eef4ff 0%, #f7f9fc 45%, #ffffff 100%);
+}
+
+.maplibregl-popup-content {
+  border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 12px 32px rgba(11, 31, 58, 0.16) !important;
+  font-family: var(--font-body), system-ui, sans-serif !important;
+}
+
+.maplibregl-popup-close-button {
+  font-size: 18px !important;
+  padding: 4px 8px !important;
+}
+
+/* Map container — never force canvas pixel size; MapLibre owns that */
+.pisome-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pisome-map .maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+.pisome-map .maplibregl-ctrl-group {
+  border: 1px solid var(--pisome-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 20px rgba(11, 31, 58, 0.1) !important;
+  overflow: hidden;
+}
+
+.pisome-map .maplibregl-ctrl-group button {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.pisome-map .maplibregl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-radius: 8px 0 0 0 !important;
+  font-size: 10px !important;
+  color: var(--pisome-muted) !important;
+}
+
+.pisome-map .maplibregl-ctrl-scale {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: var(--pisome-border) !important;
+  border-radius: 6px !important;
+  color: var(--pisome-muted) !important;
+  font-size: 10px !important;
+  font-family: var(--font-body), system-ui, sans-serif !important;
+}
+
+/*
+  Price markers — animate INNER elements only.
+  MapLibre positions the root via transform; never override it.
+*/
+.pisome-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.pisome-marker__pill {
+  border: 1.5px solid var(--marker-border, #1d4ed8);
+  border-radius: 999px;
+  background: var(--marker-bg, #2563eb);
+  color: var(--marker-text, #fff);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  padding: 7px 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(11, 31, 58, 0.22);
+  animation: marker-settle 0.35s ease-out both;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+
+.pisome-marker:hover .pisome-marker__pill {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 18px rgba(11, 31, 58, 0.28);
+}
+
+.pisome-marker.is-selected {
+  z-index: 3;
+}
+
+.pisome-marker.is-selected .pisome-marker__pill {
+  box-shadow: 0 10px 20px rgba(13, 148, 136, 0.35);
+}
+
+.pisome-marker__tip {
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid var(--marker-bg, #2563eb);
+}

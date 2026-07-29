@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  passwordHash   String?
+  /// SEEKER | AGENT | ADMIN
+  role           String         @default("SEEKER")
+  phone          String?
+  locale         String         @default("es")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  listings       Listing[]      @relation("ListingAgent")
+  savedHomes     SavedHome[]
+  savedSearches  SavedSearch[]
+  inquiriesSent  Inquiry[]      @relation("InquirySender")
+  inquiriesReceived Inquiry[]   @relation("InquiryAgent")
+  orders         Order[]
+}
+
+model Organization {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  logoUrl     String?
+  phone       String?
+  email       String?
+  website     String?
+  city        String?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       User[]
+  listings    Listing[]
+}
+
+model Listing {
+  id             String         @id @default(cuid())
+  slug           String         @unique
+  title          String
+  titleEn        String?
+  description    String
+  descriptionEn  String?
+  /// SALE | RENT — RENT reserved for Phase 3
+  purpose        String         @default("SALE")
+  /// APARTMENT | HOUSE | VILLA | PENTHOUSE | STUDIO | TOWNHOUSE | LAND | OTHER
+  propertyType   String
+  /// DRAFT | REVIEW | LIVE | SOLD | RENTED | ARCHIVED
+  status         String         @default("DRAFT")
+  /// ESSENTIAL | PLUS | PREMIUM
+  packageTier    String         @default("ESSENTIAL")
+  price          Int
+  currency       String         @default("EUR")
+  /// Optional rental-only fields (Phase 3) — nullable for SALE listings
+  rentDeposit    Int?
+  rentPeriod     String?
+  contractType   String?
+  furnished      Boolean?
+  rooms          Int
+  bathrooms      Int
+  areaM2         Int
+  floor          Int?
+  yearBuilt      Int?
+  /// A–G | PENDING
+  energyCert     String         @default("PENDING")
+  hasElevator    Boolean        @default(false)
+  hasParking     Boolean        @default(false)
+  hasTerrace     Boolean        @default(false)
+  hasPool        Boolean        @default(false)
+  isNewBuild     Boolean        @default(false)
+  address        String
+  neighborhood   String
+  city           String
+  province       String
+  postalCode     String?
+  country        String         @default("ES")
+  lat            Float
+  lng            Float
+  featured       Boolean        @default(false)
+  views          Int            @default(0)
+  publishedAt    DateTime?
+  /// Extensible JSON attrs for future rental verification, amenities, etc.
+  attrs          String         @default("{}")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  agentId        String?
+  agent          User?          @relation("ListingAgent", fields: [agentId], references: [id])
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  media          ListingMedia[]
+  savedHomes     SavedHome[]
+  inquiries      Inquiry[]
+
+  @@index([purpose, status, city])
+  @@index([lat, lng])
+  @@index([price])
+  @@index([packageTier, featured])
+}
+
+model ListingMedia {
+  id          String   @id @default(cuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url         String
+  alt         String?
+  width       Int?
+  height      Int?
+  sortOrder   Int      @default(0)
+  isFloorPlan Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model SavedHome {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+}
+
+model SavedSearch {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  city        String?
+  /// SALE | RENT
+  purpose     String    @default("SALE")
+  minPrice    Int?
+  maxPrice    Int?
+  minRooms    Int?
+  minAreaM2   Int?
+  propertyType String?
+  alertsOn    Boolean   @default(true)
+  lastAlertAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Inquiry {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  senderId  String?
+  sender    User?    @relation("InquirySender", fields: [senderId], references: [id])
+  agentId   String?
+  agent     User?    @relation("InquiryAgent", fields: [agentId], references: [id])
+  name      String
+  email     String
+  phone     String?
+  message   String
+  /// NEW | READ | REPLIED | CLOSED
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId, status])
+  @@index([listingId])
+}
+
+model PackagePlan {
+  id            String  @id @default(cuid())
+  /// ESSENTIAL | PLUS | PREMIUM
+  tier          String  @unique
+  name          String
+  nameEn        String
+  priceCents    Int
+  currency      String  @default("EUR")
+  durationDays  Int     @default(30)
+  features      String
+  featuresEn    String
+  stripePriceId String?
+  active        Boolean @default(true)
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  listingId       String?
+  /// ESSENTIAL | PLUS | PREMIUM
+  tier            String
+  amountCents     Int
+  currency        String   @default("EUR")
+  stripeSessionId String?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
