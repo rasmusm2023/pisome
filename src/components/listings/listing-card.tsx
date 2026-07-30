@@ -32,16 +32,12 @@ export function ListingCard({
   return (
     <Link
       href={`/listings/${listing.slug}`}
-      className={cn(
-        "group flex items-stretch overflow-hidden rounded-2xl bg-white transition duration-300 hover:shadow-lg hover:shadow-pisome-navy/8",
-      )}
+      className="group flex items-start overflow-hidden rounded-2xl bg-white transition duration-300 hover:shadow-lg hover:shadow-pisome-navy/8"
     >
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden",
-          isWide
-            ? "aspect-[16/10] w-[46%] min-h-[9rem] sm:min-h-[13rem] lg:w-[42%]"
-            : "w-[44%] min-h-[8.5rem] sm:min-h-[10.5rem]",
+          "relative aspect-[4/3] w-[44%] shrink-0 overflow-hidden",
+          isWide && "w-[42%] lg:w-[40%]",
         )}
       >
         <Image
@@ -51,8 +47,8 @@ export function ListingCard({
           className="object-cover"
           sizes={
             isWide
-              ? "(max-width: 640px) 42vw, (max-width: 1024px) 40vw, 28vw"
-              : "(max-width: 1024px) 40vw, 12vw"
+              ? "(max-width: 640px) 42vw, (max-width: 1024px) 40vw, 24vw"
+              : "(max-width: 1024px) 40vw, 18vw"
           }
         />
         <div className="absolute left-2 top-2 flex flex-wrap gap-1 sm:left-3 sm:top-3 sm:gap-1.5">

@@ -257,7 +257,7 @@ export function SearchExperience({
       <div
         className={cn(
           "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
-          view === "map" ? "grid-cols-1" : "lg:grid-cols-[3fr_7fr]",
+          view === "map" ? "grid-cols-1" : "lg:grid-cols-[2fr_3fr]",
         )}
       >
         {view !== "map" && (
