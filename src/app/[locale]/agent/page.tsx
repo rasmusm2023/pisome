@@ -85,7 +85,7 @@ export default async function AgentDashboard({
                   className="border-b border-pisome-border/70 last:border-0"
                 >
                   <td className="px-4 py-4">
-                    <p className="font-medium text-pisome-navy">{listing.title}</p>
+                    <p className="font-medium text-pisome-navy">{listing.address}</p>
                     <p className="text-pisome-muted">
                       {formatPrice(
                         listing.price,

@@ -13,7 +13,7 @@ export function Badge({
     default: "bg-pisome-alice text-pisome-blue",
     plus: "bg-pisome-sky text-pisome-blue-dark",
     premium: "bg-pisome-navy text-white",
-    featured: "bg-pisome-accent/15 text-pisome-accent-hover",
+    featured: "bg-pisome-blue-dark text-[#dbeafe]",
     success: "bg-emerald-50 text-pisome-success",
   };
 

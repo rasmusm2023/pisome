@@ -50,6 +50,86 @@ body {
   min-height: 100vh;
 }
 
+/* Dual range slider thumbs */
+.pisome-range {
+  pointer-events: none;
+}
+
+.pisome-range::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--pisome-blue);
+  box-shadow: 0 1px 4px rgba(11, 31, 58, 0.25);
+  cursor: grab;
+}
+
+.pisome-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--pisome-blue);
+  box-shadow: 0 1px 4px rgba(11, 31, 58, 0.25);
+  cursor: grab;
+}
+
+.pisome-range::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 8px;
+}
+
+.pisome-range::-moz-range-track {
+  background: transparent;
+  height: 8px;
+}
+
+.pisome-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--pisome-blue);
+  outline-offset: 2px;
+}
+
+.pisome-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--pisome-blue);
+  outline-offset: 2px;
+}
+
+@keyframes contact-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  18%,
+  32% {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  68%,
+  82% {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  }
+}
+
+.pisome-contact-blink {
+  border-radius: 1rem;
+  animation: contact-blink 2.4s ease-in-out;
+}
+
+.pisome-scroll-hidden {
+  scrollbar-width: none;
+}
+
+.pisome-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 h1,
 h2,
 h3,
@@ -82,6 +162,16 @@ h3,
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* Opacity-only so hover/list scale transforms aren't locked by animation fill */
+@keyframes marker-dot-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -178,46 +268,231 @@ h3,
   z-index: 1;
 }
 
-.pisome-marker__pill {
-  border: 1.5px solid var(--marker-border, #1d4ed8);
+.pisome-marker.is-selected,
+.pisome-marker.is-expanded {
+  z-index: 5;
+}
+
+.pisome-marker.is-hovered {
+  z-index: 4;
+}
+
+.pisome-marker__dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
   border-radius: 999px;
   background: var(--marker-bg, #2563eb);
-  color: var(--marker-text, #fff);
+  box-shadow: 0 2px 8px rgba(11, 31, 58, 0.35);
+  cursor: pointer;
+  padding: 0;
+  animation: marker-dot-in 0.3s ease-out both;
+  transform-origin: center center;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+}
+
+.pisome-marker__dot--expanded {
+  width: 28px;
+  height: 28px;
+  margin-top: -6px;
+  border-width: 3px;
+  cursor: default;
+  box-shadow: 0 4px 12px rgba(11, 31, 58, 0.4);
+  pointer-events: none;
+}
+
+.pisome-marker:hover .pisome-marker__dot:not(.pisome-marker__dot--expanded) {
+  transform: scale(1.2);
+  filter: brightness(1.08);
+  box-shadow: 0 3px 10px rgba(11, 31, 58, 0.4);
+}
+
+.pisome-marker.is-hovered .pisome-marker__dot:not(.pisome-marker__dot--expanded) {
+  transform: scale(2);
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px rgba(11, 31, 58, 0.45);
+}
+
+.pisome-marker__card {
+  width: 336px;
+  overflow: hidden;
+  border-radius: 16px;
+  border: none;
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(11, 31, 58, 0.3);
+  cursor: pointer;
+  animation: marker-settle 0.3s ease-out both;
+}
+
+.pisome-marker__gallery {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #e8eef6;
+}
+
+.pisome-marker--no-settle .pisome-marker__dot,
+.pisome-marker--no-settle .pisome-marker__card {
+  animation: none;
+}
+
+.pisome-marker__title {
+  position: relative;
+  display: inline-block;
+  align-self: flex-start;
+  max-width: 100%;
+  color: #0b1f3a;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pisome-marker__title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1.5px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.28s ease;
+}
+
+.pisome-marker__card:hover .pisome-marker__title::after {
+  transform: scaleX(1);
+}
+
+.pisome-marker__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pisome-marker__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #eef4ff, #dbe7ff);
+  color: #5b6b85;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.pisome-marker__nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-top: -15px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b1f3a;
+  box-shadow: 0 2px 8px rgba(11, 31, 58, 0.2);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.pisome-marker__nav:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+.pisome-marker__nav--prev {
+  left: 8px;
+}
+
+.pisome-marker__nav--next {
+  right: 8px;
+}
+
+.pisome-marker__counter {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  border-radius: 999px;
+  background: rgba(11, 31, 58, 0.72);
+  color: #fff;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.pisome-marker__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 14px;
+  background: #fff;
+  color: #0b1f3a;
+  text-align: left;
+}
+
+.pisome-marker__address {
+  color: #5b6b85;
   font-family: var(--font-body), system-ui, sans-serif;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  padding: 7px 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-  box-shadow: 0 6px 14px rgba(11, 31, 58, 0.22);
-  animation: marker-settle 0.35s ease-out both;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
 }
 
-.pisome-marker:hover .pisome-marker__pill {
-  filter: brightness(1.06);
-  box-shadow: 0 8px 18px rgba(11, 31, 58, 0.28);
+.pisome-marker__location {
+  color: #5b6b85;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
-.pisome-marker.is-selected {
-  z-index: 3;
+.pisome-marker__meta {
+  color: #0b1f3a;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
-.pisome-marker.is-selected .pisome-marker__pill {
-  box-shadow: 0 10px 20px rgba(13, 148, 136, 0.35);
+.pisome-marker__price {
+  color: #0b1f3a;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
-.pisome-marker__tip {
-  width: 0;
-  height: 0;
-  margin-top: -1px;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 8px solid var(--marker-bg, #2563eb);
+.pisome-marker__listed {
+  margin-top: 2px;
+  color: #5b6b85;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
 }
+
+

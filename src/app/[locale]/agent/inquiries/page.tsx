@@ -57,7 +57,7 @@ export default async function InquiriesPage({
                   </div>
                   <p className="mt-1 text-sm text-pisome-muted">
                     {inq.email}
-                    {inq.phone ? ` · ${inq.phone}` : ""} · {inq.listing.title}
+                    {inq.phone ? ` · ${inq.phone}` : ""} · {inq.listing.address}
                   </p>
                   <p className="mt-3 text-sm text-pisome-navy">{inq.message}</p>
                 </div>

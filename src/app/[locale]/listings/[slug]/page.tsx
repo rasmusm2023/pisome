@@ -1,12 +1,12 @@
 import { InquiryForm } from "@/components/listings/inquiry-form";
 import { ListingGallery } from "@/components/listings/listing-gallery";
-import { SaveButton } from "@/components/listings/save-button";
+import { ListingMap } from "@/components/listings/listing-map";
+import { ListingToolbar } from "@/components/listings/listing-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import { getListingBySlug, getPriceContext } from "@/lib/listings";
 import { prisma } from "@/lib/db";
-import { formatPrice, formatPricePerM2 } from "@/lib/utils";
-import { Bath, BedDouble, Maximize, Zap } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
@@ -34,8 +34,7 @@ export default async function ListingPage({
     : null;
 
   const priceContext = await getPriceContext(listing);
-  const title =
-    locale === "en" && listing.titleEn ? listing.titleEn : listing.title;
+  const title = listing.address;
   const description =
     locale === "en" && listing.descriptionEn
       ? listing.descriptionEn
@@ -49,58 +48,43 @@ export default async function ListingPage({
     listing.hasPool && t("listing.pool"),
   ].filter(Boolean) as string[];
 
+  const photoCount = listing.media.filter((m) => !m.isFloorPlan).length;
+
   return (
-      <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
-      <ListingGallery media={listing.media} />
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8">
+      <ListingToolbar
+        listingId={listing.id}
+        address={title}
+        initialSaved={Boolean(saved)}
+        hasThumbs={photoCount > 1}
+      />
+      <ListingGallery
+        media={listing.media}
+        address={title}
+        price={listing.price}
+        neighborhood={listing.neighborhood}
+        city={listing.city}
+        rooms={listing.rooms}
+        bathrooms={listing.bathrooms}
+        areaM2={listing.areaM2}
+      />
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-8">
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {listing.featured && (
-                <Badge variant="featured">{t("listing.featured")}</Badge>
-              )}
-              {listing.packageTier === "PLUS" && (
-                <Badge variant="plus">{t("listing.plus")}</Badge>
-              )}
-              {listing.packageTier === "PREMIUM" && (
-                <Badge variant="premium">{t("listing.premium")}</Badge>
-              )}
-              <Badge>{t(`propertyTypes.${listing.propertyType}`)}</Badge>
-            </div>
-            <p className="font-display text-3xl font-semibold text-pisome-navy sm:text-4xl">
-              {formatPrice(listing.price, numberLocale)}
-            </p>
-            <h1 className="font-display text-2xl font-semibold text-pisome-navy">
-              {title}
-            </h1>
-            <p className="text-pisome-muted">
-              {listing.address} · {listing.neighborhood}, {listing.city}
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2 text-sm text-pisome-navy">
-              <span className="inline-flex items-center gap-1.5">
-                <BedDouble className="h-4 w-4 text-pisome-blue" />
-                {t("listing.rooms", { count: listing.rooms })}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Bath className="h-4 w-4 text-pisome-blue" />
-                {t("listing.baths", { count: listing.bathrooms })}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Maximize className="h-4 w-4 text-pisome-blue" />
-                {t("listing.area", { count: listing.areaM2 })}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Zap className="h-4 w-4 text-pisome-blue" />
-                {t("listing.energy", { cert: listing.energyCert })}
-              </span>
-              <span>
-                {formatPricePerM2(listing.price, listing.areaM2, numberLocale)}
-              </span>
-            </div>
-            <div className="pt-2">
-              <SaveButton listingId={listing.id} initialSaved={Boolean(saved)} />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {listing.featured && (
+              <Badge variant="featured">{t("listing.featured")}</Badge>
+            )}
+            {listing.packageTier === "PLUS" && (
+              <Badge variant="plus">{t("listing.plus")}</Badge>
+            )}
+            {listing.packageTier === "PREMIUM" && (
+              <Badge variant="premium">{t("listing.premium")}</Badge>
+            )}
+            <Badge>{t(`propertyTypes.${listing.propertyType}`)}</Badge>
+            <Badge variant="default">
+              {t("listing.energy", { cert: listing.energyCert })}
+            </Badge>
           </div>
 
           <section>
@@ -130,6 +114,22 @@ export default async function ListingPage({
             </section>
           )}
 
+          <section>
+            <h2 className="font-display text-xl font-semibold text-pisome-navy">
+              {t("listing.location")}
+            </h2>
+            <p className="mt-1 text-sm text-pisome-muted">
+              {listing.address} · {listing.neighborhood}, {listing.city}
+            </p>
+            <div className="mt-4">
+              <ListingMap
+                lat={listing.lat}
+                lng={listing.lng}
+                address={listing.address}
+              />
+            </div>
+          </section>
+
           <section className="rounded-2xl border border-pisome-border bg-white p-5">
             <h2 className="font-display text-xl font-semibold text-pisome-navy">
               {t("listing.priceContext")}
@@ -156,7 +156,7 @@ export default async function ListingPage({
                 <p
                   className={`font-display text-2xl font-semibold ${
                     priceContext.deltaPercent > 5
-                      ? "text-pisome-accent"
+                      ? "text-pisome-blue"
                       : priceContext.deltaPercent < -5
                         ? "text-pisome-success"
                         : "text-pisome-navy"
@@ -187,7 +187,10 @@ export default async function ListingPage({
               {t("listing.views", { count: listing.views })}
             </p>
           </div>
-          <div className="rounded-2xl border border-pisome-border bg-white p-5">
+          <div
+            id="contact-broker"
+            className="scroll-mt-28 rounded-2xl border border-pisome-border bg-white p-5"
+          >
             <InquiryForm
               listingId={listing.id}
               defaultName={session?.user?.name}

@@ -1,32 +1,138 @@
 "use client";
 
 import { ListingCard } from "@/components/listings/listing-card";
-import { SearchMap, type MapListing } from "@/components/search/search-map";
+import { rememberSearchPath } from "@/components/listings/listing-toolbar";
+import {
+  hasAppliedFilters,
+  SearchFiltersPanel,
+} from "@/components/search/search-filters-panel";
+import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Link, useRouter } from "@/i18n/navigation";
+import type { FilterCatalogItem } from "@/lib/listings";
+import { cn } from "@/lib/utils";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Listing, ListingMedia } from "@prisma/client";
-import { Bell, List, Map as MapIcon } from "lucide-react";
+import {
+  Bookmark,
+  List,
+  Map as MapIcon,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useMemo, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 type ListingResult = Listing & { media: ListingMedia[] };
 
+function ListingResults({
+  listings,
+  layout,
+  hoveredSlug,
+  selectedSlug,
+  onHover,
+  emptyLabel,
+}: {
+  listings: ListingResult[];
+  layout: "stack" | "row";
+  hoveredSlug: string | null;
+  selectedSlug: string | null;
+  onHover: (slug: string | null) => void;
+  emptyLabel: string;
+}) {
+  const listingKey = listings.map((l) => l.id).join(",");
+  const [shown, setShown] = useState(listings);
+  const [dimmed, setDimmed] = useState(false);
+  const keyRef = useRef(listingKey);
+
+  useEffect(() => {
+    if (listingKey === keyRef.current) {
+      setShown(listings);
+      return;
+    }
+    keyRef.current = listingKey;
+    setDimmed(true);
+    const timer = window.setTimeout(() => {
+      setShown(listings);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => setDimmed(false));
+      });
+    }, 160);
+    return () => window.clearTimeout(timer);
+  }, [listingKey, listings]);
+
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-4 pb-2 transition-opacity duration-300 ease-out",
+        layout === "row" && "gap-3",
+        dimmed ? "opacity-[0.55]" : "opacity-100",
+      )}
+    >
+      {shown.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-pisome-border bg-white p-8 text-center text-pisome-muted">
+          {emptyLabel}
+        </p>
+      )}
+      {shown.map((listing) => (
+        <div
+          key={listing.id}
+          onMouseEnter={() => onHover(listing.slug)}
+          onMouseLeave={() => onHover(null)}
+          className={cn(
+            "transition-opacity duration-300 ease-out",
+            hoveredSlug === listing.slug || selectedSlug === listing.slug
+              ? "ring-2 ring-pisome-blue rounded-2xl"
+              : "",
+          )}
+        >
+          <ListingCard listing={listing} layout={layout} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SearchExperience({
   listings,
+  catalog,
   initialFilters,
 }: {
   listings: ListingResult[];
+  catalog: FilterCatalogItem[];
   initialFilters: Record<string, string | undefined>;
 }) {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [view, setView] = useState<"split" | "list" | "map">("split");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+
+  useEffect(() => {
+    const qs = searchParams.toString();
+    rememberSearchPath(qs ? `${pathname}?${qs}` : pathname);
+  }, [pathname, searchParams]);
+
+  const filtersActive = useMemo(
+    () => hasAppliedFilters(initialFilters),
+    [initialFilters],
+  );
+
+  const canSaveSearch = filtersActive;
+
+  const listingKey = listings.map((l) => l.id).join(",");
+  useEffect(() => {
+    // New filter results — wait for map fit before viewport-filtering the list
+    setMapBounds(null);
+  }, [listingKey]);
 
   const mapListings: MapListing[] = useMemo(
     () =>
@@ -39,40 +145,66 @@ export function SearchExperience({
         lng: l.lng,
         packageTier: l.packageTier,
         featured: l.featured,
+        images: l.media
+          .filter((m) => !m.isFloorPlan)
+          .map((m) => m.url)
+          .filter(Boolean),
+        address: l.address,
+        neighborhood: l.neighborhood,
+        city: l.city,
+        rooms: l.rooms,
+        areaM2: l.areaM2,
+        propertyType: l.propertyType,
+        propertyTypeLabel: t(`propertyTypes.${l.propertyType}`),
+        publishedAt: l.publishedAt
+          ? new Date(l.publishedAt).toISOString()
+          : null,
       })),
-    [listings, locale],
+    [listings, locale, t],
   );
 
-  function applyFilters(formData: FormData) {
-    const params = new URLSearchParams();
-    const keys = [
-      "q",
-      "city",
-      "minPrice",
-      "maxPrice",
-      "minRooms",
-      "minAreaM2",
-      "propertyType",
-      "sort",
-    ];
-    keys.forEach((key) => {
-      const value = String(formData.get(key) ?? "").trim();
-      if (value) params.set(key, value);
-    });
-    if (formData.get("hasParking")) params.set("hasParking", "1");
-    if (formData.get("isNewBuild")) params.set("isNewBuild", "1");
+  const visibleListings = useMemo(() => {
+    if (view === "list" || !mapBounds) return listings;
+    return listings.filter((listing) => isListingInBounds(listing, mapBounds));
+  }, [listings, mapBounds, view]);
 
+  useEffect(() => {
+    if (!selectedSlug) return;
+    if (!visibleListings.some((l) => l.slug === selectedSlug)) {
+      setSelectedSlug(null);
+    }
+  }, [visibleListings, selectedSlug]);
+
+  function navigateSearch(params: URLSearchParams) {
     startTransition(() => {
-      router.push(`/search?${params.toString()}`);
+      const qs = params.toString();
+      router.push(qs ? `/search?${qs}` : "/search");
     });
   }
 
-  async function createAlert() {
+  function onMainSearch(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const params = new URLSearchParams();
+    Object.entries(initialFilters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const q = String(formData.get("q") ?? "").trim();
+    if (q) params.set("q", q);
+    else params.delete("q");
+    navigateSearch(params);
+  }
+
+  async function saveSearch() {
+    if (!canSaveSearch) return;
     const res = await fetch("/api/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: initialFilters.city || initialFilters.q || "Pisome alert",
+        name:
+          initialFilters.q ||
+          initialFilters.city ||
+          t("search.saveSearchDefault"),
         city: initialFilters.city,
         minPrice: initialFilters.minPrice
           ? Number(initialFilters.minPrice)
@@ -90,8 +222,8 @@ export function SearchExperience({
       router.push("/auth/signin");
       return;
     }
-    setAlertMsg(res.ok ? "✓" : "!");
-    setTimeout(() => setAlertMsg(null), 2000);
+    setSaveMsg(res.ok ? t("search.saveSearchDone") : t("search.saveSearchError"));
+    setTimeout(() => setSaveMsg(null), 2500);
   }
 
   return (
@@ -101,171 +233,171 @@ export function SearchExperience({
           <h1 className="font-display text-3xl font-semibold text-pisome-navy">
             {t("search.title")}
           </h1>
-          <p className="mt-1 text-sm text-pisome-muted">
-            {t("search.results", { count: listings.length })}
-            {pending ? "…" : ""}
-          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={createAlert}>
-            <Bell className="h-4 w-4" />
-            {alertMsg ?? t("cta.createAlert")}
-          </Button>
-          <div className="flex rounded-xl border border-pisome-border bg-white p-1">
-            <button
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "map" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
-              onClick={() => setView(view === "map" ? "split" : "list")}
-            >
-              <List className="mr-1 inline h-3.5 w-3.5" />
-              {t("search.list")}
-            </button>
-            <button
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "list" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
-              onClick={() => setView(view === "list" ? "split" : "map")}
-            >
-              <MapIcon className="mr-1 inline h-3.5 w-3.5" />
-              {t("search.map")}
-            </button>
-          </div>
+        <div className="flex rounded-xl border border-pisome-border bg-white p-1">
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "map" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
+            onClick={() => setView(view === "map" ? "split" : "list")}
+          >
+            <List className="mr-1 inline h-3.5 w-3.5" />
+            {t("search.list")}
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "list" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
+            onClick={() => setView(view === "list" ? "split" : "map")}
+          >
+            <MapIcon className="mr-1 inline h-3.5 w-3.5" />
+            {t("search.map")}
+          </button>
         </div>
       </div>
 
-      <form
-        action={applyFilters}
-        className="grid gap-3 rounded-2xl border border-pisome-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-6"
-      >
-        <Input
-          name="q"
-          defaultValue={initialFilters.q}
-          placeholder={t("search.placeholder")}
-          className="lg:col-span-2"
-        />
-        <Select name="city" defaultValue={initialFilters.city ?? ""}>
-          <option value="">{t("search.any")} city</option>
-          <option value="Madrid">Madrid</option>
-          <option value="Barcelona">Barcelona</option>
-          <option value="Málaga">Málaga</option>
-          <option value="Valencia">Valencia</option>
-        </Select>
-        <Input
-          name="minPrice"
-          type="number"
-          placeholder={`${t("search.min")} €`}
-          defaultValue={initialFilters.minPrice}
-        />
-        <Input
-          name="maxPrice"
-          type="number"
-          placeholder={`${t("search.max")} €`}
-          defaultValue={initialFilters.maxPrice}
-        />
-        <Select name="minRooms" defaultValue={initialFilters.minRooms ?? ""}>
-          <option value="">{t("search.rooms")}</option>
-          <option value="1">1+</option>
-          <option value="2">2+</option>
-          <option value="3">3+</option>
-          <option value="4">4+</option>
-        </Select>
-        <Select
-          name="propertyType"
-          defaultValue={initialFilters.propertyType ?? ""}
-        >
-          <option value="">{t("search.type")}</option>
-          {Object.entries({
-            APARTMENT: t("propertyTypes.APARTMENT"),
-            HOUSE: t("propertyTypes.HOUSE"),
-            VILLA: t("propertyTypes.VILLA"),
-            PENTHOUSE: t("propertyTypes.PENTHOUSE"),
-            STUDIO: t("propertyTypes.STUDIO"),
-            TOWNHOUSE: t("propertyTypes.TOWNHOUSE"),
-          }).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-        <Select name="sort" defaultValue={initialFilters.sort ?? "featured"}>
-          <option value="featured">{t("search.sortFeatured")}</option>
-          <option value="price_asc">{t("search.sortPriceAsc")}</option>
-          <option value="price_desc">{t("search.sortPriceDesc")}</option>
-        </Select>
-        <label className="flex items-center gap-2 text-sm text-pisome-muted">
-          <input
-            type="checkbox"
-            name="hasParking"
-            defaultChecked={initialFilters.hasParking === "1"}
-            className="accent-pisome-blue"
-          />
-          {t("search.parking")}
-        </label>
-        <label className="flex items-center gap-2 text-sm text-pisome-muted">
-          <input
-            type="checkbox"
-            name="isNewBuild"
-            defaultChecked={initialFilters.isNewBuild === "1"}
-            className="accent-pisome-blue"
-          />
-          {t("search.newBuild")}
-        </label>
-        <Button type="submit" className="sm:col-span-2 lg:col-span-1">
-          {t("nav.search")}
-        </Button>
-      </form>
-
       <div
-        className={`grid gap-4 ${view === "split" ? "lg:grid-cols-[3fr_7fr]" : "grid-cols-1"}`}
+        className={cn(
+          "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+          view === "map" ? "grid-cols-1" : "lg:grid-cols-[3fr_7fr]",
+        )}
       >
         {view !== "map" && (
-          <div className="grid grid-cols-1 gap-4">
-            {listings.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-pisome-border bg-white p-8 text-center text-pisome-muted">
-                {t("search.noResults")}
-              </p>
+          <div
+            className={cn(
+              "relative flex min-w-0 flex-col gap-3 overflow-hidden lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
             )}
-            {listings.map((listing) => (
-              <div
-                key={listing.id}
-                onMouseEnter={() => setSelectedSlug(listing.slug)}
-                className={
-                  selectedSlug === listing.slug
-                    ? "ring-2 ring-pisome-accent rounded-2xl"
-                    : ""
+          >
+            <form onSubmit={onMainSearch} className="relative shrink-0">
+              <Search
+                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pisome-muted"
+                aria-hidden
+              />
+              <Input
+                name="q"
+                defaultValue={initialFilters.q}
+                placeholder={t("search.placeholder")}
+                className="pl-10"
+                aria-label={t("search.placeholder")}
+              />
+            </form>
+
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="min-w-0 flex-1"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <SlidersHorizontal className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t("search.searchFilters")}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-w-0 flex-1"
+                onClick={saveSearch}
+                disabled={!canSaveSearch}
+                title={
+                  canSaveSearch ? undefined : t("search.saveSearchDisabled")
                 }
               >
-                <ListingCard listing={listing} />
+                <Bookmark className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  {saveMsg ?? t("search.saveSearch")}
+                </span>
+              </Button>
+            </div>
+
+            <p className="shrink-0 text-sm text-pisome-muted">
+              {t("search.results", { count: visibleListings.length })}
+              {pending ? "…" : ""}
+            </p>
+
+            {view === "split" && (
+              <div className="pisome-scroll-hidden min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
+                <ListingResults
+                  listings={visibleListings}
+                  layout="stack"
+                  hoveredSlug={hoveredSlug}
+                  selectedSlug={selectedSlug}
+                  onHover={setHoveredSlug}
+                  emptyLabel={
+                    listings.length > 0
+                      ? t("search.noResultsInMap")
+                      : t("search.noResults")
+                  }
+                />
               </div>
-            ))}
+            )}
+
+            <SearchFiltersPanel
+              open={filtersOpen}
+              initialFilters={initialFilters}
+              catalog={catalog}
+              locale={locale}
+              hasActiveFilters={filtersActive}
+              onClose={() => setFiltersOpen(false)}
+              onApply={(params) => {
+                setFiltersOpen(false);
+                navigateSearch(params);
+              }}
+              onClear={() => {
+                setFiltersOpen(false);
+                navigateSearch(new URLSearchParams());
+              }}
+            />
           </div>
         )}
-        {view !== "list" && (
-          <div
-            className={`flex flex-col gap-3 ${
-              view === "map"
-                ? "h-[calc(100vh-8rem)]"
-                : "h-[calc(100vh-11rem)] lg:sticky lg:top-20"
-            }`}
-          >
-            <div className="min-h-0 flex-1">
+
+        <div
+          className={cn(
+            "flex min-w-0 flex-col gap-3 transition-opacity duration-300 ease-out",
+            view === "map"
+              ? "h-[calc(100vh-8rem)]"
+              : "h-[calc(100vh-11rem)] lg:sticky lg:top-20",
+          )}
+        >
+          {view === "list" ? (
+            <div
+              key="list-pane"
+              className="pisome-scroll-hidden min-h-0 flex-1 animate-[fade-up_0.35s_ease-out] overflow-y-auto overflow-x-hidden px-1.5 py-1"
+            >
+              <ListingResults
+                listings={listings}
+                layout="row"
+                hoveredSlug={hoveredSlug}
+                selectedSlug={selectedSlug}
+                onHover={setHoveredSlug}
+                emptyLabel={t("search.noResults")}
+              />
+            </div>
+          ) : (
+            <div
+              key="map-pane"
+              className="min-h-0 flex-1 animate-[fade-up_0.35s_ease-out]"
+            >
               <SearchMap
                 listings={mapListings}
                 locale={locale}
                 selectedId={
-                  listings.find((l) => l.slug === selectedSlug)?.id ?? null
+                  visibleListings.find((l) => l.slug === selectedSlug)?.id ??
+                  null
+                }
+                hoveredId={
+                  listings.find((l) => l.slug === hoveredSlug)?.id ?? null
                 }
                 onSelect={(slug) => {
                   setSelectedSlug(slug);
                 }}
+                onOpenListing={(slug) => {
+                  router.push(`/listings/${slug}`);
+                }}
+                onBoundsChange={(bounds) => {
+                  startTransition(() => setMapBounds(bounds));
+                }}
               />
             </div>
-            {selectedSlug && (
-              <Link href={`/listings/${selectedSlug}`}>
-                <Button variant="accent" className="w-full">
-                  {t("cta.viewListing")}
-                </Button>
-              </Link>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
