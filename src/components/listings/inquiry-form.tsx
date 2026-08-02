@@ -46,6 +46,7 @@ export function InquiryForm({
         {t("listing.inquire")}
       </h3>
       <Input
+        id="inquiry-name"
         name="name"
         required
         placeholder={t("inquiry.name")}
