@@ -24,7 +24,7 @@ type RangeSliderProps = {
 };
 
 function parseTypedValue(raw: string): number | null {
-  const cleaned = raw.replace(/[^\d.,]/g).trim();
+  const cleaned = raw.replace(/[^\d.,]/g, "").trim();
   if (!cleaned) return null;
 
   const lastComma = cleaned.lastIndexOf(",");

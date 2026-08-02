@@ -9,7 +9,7 @@ import {
 } from "@/components/search/search-filters-panel";
 import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
 import { Button } from "@/components/ui/button";
-import type { FilterCatalogItem } from "@/lib/listings";
+import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Listing, ListingMedia } from "@prisma/client";

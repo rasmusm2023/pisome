@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import type { FilterCatalogItem } from "@/lib/listings";
+import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
 import { MapPin, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
