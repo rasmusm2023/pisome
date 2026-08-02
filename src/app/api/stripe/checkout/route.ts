@@ -5,6 +5,8 @@ import type { PackageTier } from "@/lib/types";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const schema = z.object({
   listingId: z.string(),
   tier: z.enum(["ESSENTIAL", "PLUS", "PREMIUM"]),
