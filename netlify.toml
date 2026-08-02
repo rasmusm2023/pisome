@@ -1,0 +1,16 @@
+[build]
+  command = "npx prisma db push && npm run db:seed && npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Seeded at build time, then copied to /tmp at runtime (see src/lib/db.ts).
+  DATABASE_URL = "file:./prisma/deploy.db"
+  NEXT_TELEMETRY_DISABLED = "1"
+  NODE_VERSION = "20"
+
+# Ensure the SQLite file is available inside Next.js serverless functions.
+[functions]
+  included_files = ["prisma/deploy.db"]
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

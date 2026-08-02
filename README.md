@@ -36,7 +36,19 @@ Open [http://localhost:3000](http://localhost:3000) (redirects to `/es`).
 - `npm run db:seed` — seed launch-city inventory
 - `npm run db:push` — sync Prisma schema
 
-## Product scope
+## Deploy (Netlify)
+
+`/search` and other data pages need the SQLite database at runtime. Local `prisma/dev.db` is gitignored, so Netlify builds a fresh `prisma/deploy.db` during deploy (`netlify.toml`).
+
+In Netlify → Site configuration → Environment variables, set at least:
+
+| Variable | Example |
+|---|---|
+| `AUTH_SECRET` | long random string |
+| `AUTH_URL` | `https://your-site.netlify.app` |
+| `NEXT_PUBLIC_APP_URL` | `https://your-site.netlify.app` |
+
+`DATABASE_URL` is already set in `netlify.toml` for the seeded SQLite file. For real production traffic, swap to hosted Postgres (Neon, Supabase, etc.) as noted above — SQLite on serverless is fine for demos, not durable writes.
 
 - **MVP:** Buy/sell portal for Madrid, Barcelona, Málaga, Valencia
 - **Design:** HomeQ-inspired calm blue UI, photo-first listings
