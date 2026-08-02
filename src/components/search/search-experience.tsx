@@ -2,13 +2,13 @@
 
 import { ListingCard } from "@/components/listings/listing-card";
 import { rememberSearchPath } from "@/components/listings/listing-toolbar";
+import { LocationSearchInput } from "@/components/search/location-search-input";
 import {
   hasAppliedFilters,
   SearchFiltersPanel,
 } from "@/components/search/search-filters-panel";
 import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type { FilterCatalogItem } from "@/lib/listings";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "@/i18n/navigation";
@@ -17,7 +17,6 @@ import {
   Bookmark,
   List,
   Map as MapIcon,
-  Search,
   SlidersHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -115,6 +114,11 @@ export function SearchExperience({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [mainQuery, setMainQuery] = useState(initialFilters.q ?? "");
+
+  useEffect(() => {
+    setMainQuery(initialFilters.q ?? "");
+  }, [initialFilters.q]);
 
   useEffect(() => {
     const qs = searchParams.toString();
@@ -184,14 +188,22 @@ export function SearchExperience({
 
   function onMainSearch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
     const params = new URLSearchParams();
     Object.entries(initialFilters).forEach(([key, value]) => {
-      if (value) params.set(key, value);
+      if (value && key !== "q" && key !== "city") params.set(key, value);
     });
-    const q = String(formData.get("q") ?? "").trim();
+    const q = mainQuery.trim();
     if (q) params.set("q", q);
-    else params.delete("q");
+    navigateSearch(params);
+  }
+
+  function applyMainSuggestion(value: string, city?: string) {
+    const params = new URLSearchParams();
+    Object.entries(initialFilters).forEach(([key, v]) => {
+      if (v && key !== "q" && key !== "city") params.set(key, v);
+    });
+    if (value.trim()) params.set("q", value.trim());
+    if (city) params.set("city", city);
     navigateSearch(params);
   }
 
@@ -266,17 +278,25 @@ export function SearchExperience({
               "relative flex min-w-0 flex-col gap-3 overflow-hidden lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
             )}
           >
-            <form onSubmit={onMainSearch} className="relative shrink-0">
-              <Search
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pisome-muted"
-                aria-hidden
-              />
-              <Input
-                name="q"
-                defaultValue={initialFilters.q}
+            <form onSubmit={onMainSearch} className="relative z-10 shrink-0">
+              <LocationSearchInput
+                value={mainQuery}
+                catalog={catalog}
+                lang={locale}
                 placeholder={t("search.placeholder")}
-                className="pl-10"
-                aria-label={t("search.placeholder")}
+                cityLabel={t("search.suggestionCity")}
+                neighborhoodLabel={t("search.suggestionNeighborhood")}
+                streetLabel={t("search.suggestionStreet")}
+                onChange={setMainQuery}
+                onSelectSuggestion={(suggestion) => {
+                  setMainQuery(suggestion.value);
+                  applyMainSuggestion(
+                    suggestion.value,
+                    suggestion.kind === "city"
+                      ? (suggestion.city ?? suggestion.value)
+                      : suggestion.city,
+                  );
+                }}
               />
             </form>
 

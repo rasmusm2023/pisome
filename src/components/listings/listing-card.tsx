@@ -36,7 +36,7 @@ export function ListingCard({
     >
       <div
         className={cn(
-          "relative aspect-[4/3] w-[44%] shrink-0 overflow-hidden",
+          "relative aspect-[16/10] w-[44%] shrink-0 overflow-hidden",
           isWide && "w-[42%] lg:w-[40%]",
         )}
       >
@@ -65,14 +65,14 @@ export function ListingCard({
       </div>
       <div
         className={cn(
-          "flex min-w-0 flex-1 flex-col justify-center space-y-1.5",
-          isWide ? "p-4 sm:px-6 sm:py-5" : "px-3 py-3 sm:px-4",
+          "flex min-w-0 flex-1 flex-col justify-center space-y-1",
+          isWide ? "px-4 py-3 sm:px-5 sm:py-3.5" : "px-3 py-2.5 sm:px-4",
         )}
       >
         <h3
           className={cn(
             "line-clamp-2 font-display font-semibold text-pisome-navy",
-            isWide ? "text-xl" : "text-base sm:text-lg",
+            isWide ? "text-lg sm:text-xl" : "text-base sm:text-lg",
           )}
         >
           {name}

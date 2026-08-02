@@ -2,6 +2,17 @@ import { Prisma } from "@prisma/client";
 import type { ListingPurpose, PropertyType } from "@/lib/types";
 import { prisma } from "./db";
 
+export type ListingSort =
+  | "featured"
+  | "price_asc"
+  | "price_desc"
+  | "newest"
+  | "oldest"
+  | "area_asc"
+  | "area_desc"
+  | "ppm_asc"
+  | "ppm_desc";
+
 export type ListingFilters = {
   purpose?: ListingPurpose;
   city?: string;
@@ -10,18 +21,23 @@ export type ListingFilters = {
   maxPrice?: number;
   minPricePerM2?: number;
   maxPricePerM2?: number;
+  /** Exact room counts; "4" means 4+ */
+  rooms?: number[];
+  /** Exact bathroom counts; "3" means 3+ */
+  bathrooms?: number[];
   minRooms?: number;
   minBathrooms?: number;
   minAreaM2?: number;
   maxAreaM2?: number;
   propertyType?: PropertyType;
+  propertyTypes?: PropertyType[];
   energyCert?: string;
   isNewBuild?: boolean;
   hasParking?: boolean;
   hasElevator?: boolean;
   hasTerrace?: boolean;
   hasPool?: boolean;
-  sort?: "featured" | "price_asc" | "price_desc";
+  sort?: ListingSort;
 };
 
 export type FilterCatalogItem = {
@@ -47,43 +63,86 @@ export async function searchListings(filters: ListingFilters = {}) {
     status: "LIVE",
     purpose: filters.purpose ?? "SALE",
   };
+  const and: Prisma.ListingWhereInput[] = [];
 
   if (filters.city) {
     where.city = { contains: filters.city };
   }
   if (filters.q) {
-    where.OR = [
-      { title: { contains: filters.q } },
-      { neighborhood: { contains: filters.q } },
-      { city: { contains: filters.q } },
-      { address: { contains: filters.q } },
-    ];
+    and.push({
+      OR: [
+        { title: { contains: filters.q } },
+        { neighborhood: { contains: filters.q } },
+        { city: { contains: filters.q } },
+        { address: { contains: filters.q } },
+      ],
+    });
   }
   if (filters.minPrice != null || filters.maxPrice != null) {
     where.price = {};
     if (filters.minPrice != null) where.price.gte = filters.minPrice;
     if (filters.maxPrice != null) where.price.lte = filters.maxPrice;
   }
-  if (filters.minRooms != null) where.rooms = { gte: filters.minRooms };
-  if (filters.minBathrooms != null) {
+
+  const rooms = filters.rooms?.length
+    ? filters.rooms
+    : filters.minRooms != null
+      ? null
+      : undefined;
+  if (rooms && rooms.length > 0) {
+    const exact = rooms.filter((r) => r < 4);
+    const hasFourPlus = rooms.some((r) => r >= 4);
+    const roomOr: Prisma.ListingWhereInput[] = [];
+    if (exact.length) roomOr.push({ rooms: { in: exact } });
+    if (hasFourPlus) roomOr.push({ rooms: { gte: 4 } });
+    if (roomOr.length) and.push({ OR: roomOr });
+  } else if (filters.minRooms != null) {
+    where.rooms = { gte: filters.minRooms };
+  }
+
+  const bathrooms = filters.bathrooms?.length
+    ? filters.bathrooms
+    : filters.minBathrooms != null
+      ? null
+      : undefined;
+  if (bathrooms && bathrooms.length > 0) {
+    const exact = bathrooms.filter((b) => b < 3);
+    const hasThreePlus = bathrooms.some((b) => b >= 3);
+    const bathOr: Prisma.ListingWhereInput[] = [];
+    if (exact.length) bathOr.push({ bathrooms: { in: exact } });
+    if (hasThreePlus) bathOr.push({ bathrooms: { gte: 3 } });
+    if (bathOr.length) and.push({ OR: bathOr });
+  } else if (filters.minBathrooms != null) {
     where.bathrooms = { gte: filters.minBathrooms };
   }
+
   if (filters.minAreaM2 != null || filters.maxAreaM2 != null) {
     where.areaM2 = {};
     if (filters.minAreaM2 != null) where.areaM2.gte = filters.minAreaM2;
     if (filters.maxAreaM2 != null) where.areaM2.lte = filters.maxAreaM2;
   }
-  if (filters.propertyType) where.propertyType = filters.propertyType;
+
+  const types = filters.propertyTypes?.length
+    ? filters.propertyTypes
+    : filters.propertyType
+      ? [filters.propertyType]
+      : [];
+  if (types.length === 1) where.propertyType = types[0];
+  else if (types.length > 1) where.propertyType = { in: types };
+
   if (filters.energyCert) where.energyCert = filters.energyCert;
   if (filters.isNewBuild) where.isNewBuild = true;
   if (filters.hasParking) where.hasParking = true;
   if (filters.hasElevator) where.hasElevator = true;
   if (filters.hasTerrace) where.hasTerrace = true;
   if (filters.hasPool) where.hasPool = true;
+  if (and.length) where.AND = and;
 
-  // SQLite/Prisma can't filter on computed €/m² easily — apply after fetch when set
   const needsPricePerM2 =
-    filters.minPricePerM2 != null || filters.maxPricePerM2 != null;
+    filters.minPricePerM2 != null ||
+    filters.maxPricePerM2 != null ||
+    filters.sort === "ppm_asc" ||
+    filters.sort === "ppm_desc";
 
   let orderBy: Prisma.ListingOrderByWithRelationInput[] = [
     { featured: "desc" },
@@ -92,8 +151,12 @@ export async function searchListings(filters: ListingFilters = {}) {
   ];
   if (filters.sort === "price_asc") orderBy = [{ price: "asc" }];
   if (filters.sort === "price_desc") orderBy = [{ price: "desc" }];
+  if (filters.sort === "newest") orderBy = [{ publishedAt: "desc" }];
+  if (filters.sort === "oldest") orderBy = [{ publishedAt: "asc" }];
+  if (filters.sort === "area_asc") orderBy = [{ areaM2: "asc" }];
+  if (filters.sort === "area_desc") orderBy = [{ areaM2: "desc" }];
 
-  const listings = await prisma.listing.findMany({
+  let listings = await prisma.listing.findMany({
     where,
     include: {
       media: { orderBy: { sortOrder: "asc" }, take: 5 },
@@ -103,19 +166,32 @@ export async function searchListings(filters: ListingFilters = {}) {
     orderBy,
   });
 
-  if (!needsPricePerM2) return listings;
+  if (filters.minPricePerM2 != null || filters.maxPricePerM2 != null) {
+    listings = listings.filter((listing) => {
+      if (listing.areaM2 <= 0) return false;
+      const ppm = listing.price / listing.areaM2;
+      if (filters.minPricePerM2 != null && ppm < filters.minPricePerM2) {
+        return false;
+      }
+      if (filters.maxPricePerM2 != null && ppm > filters.maxPricePerM2) {
+        return false;
+      }
+      return true;
+    });
+  }
 
-  return listings.filter((listing) => {
-    if (listing.areaM2 <= 0) return false;
-    const ppm = listing.price / listing.areaM2;
-    if (filters.minPricePerM2 != null && ppm < filters.minPricePerM2) {
-      return false;
-    }
-    if (filters.maxPricePerM2 != null && ppm > filters.maxPricePerM2) {
-      return false;
-    }
-    return true;
-  });
+  if (filters.sort === "ppm_asc" || filters.sort === "ppm_desc") {
+    const dir = filters.sort === "ppm_asc" ? 1 : -1;
+    listings = [...listings].sort((a, b) => {
+      const ap = a.areaM2 > 0 ? a.price / a.areaM2 : 0;
+      const bp = b.areaM2 > 0 ? b.price / b.areaM2 : 0;
+      return (ap - bp) * dir;
+    });
+  } else if (needsPricePerM2 && !filters.sort?.startsWith("ppm")) {
+    /* already filtered above when needed */
+  }
+
+  return listings;
 }
 
 export async function getFilterCatalog(): Promise<FilterCatalogItem[]> {
@@ -150,11 +226,14 @@ export function countCatalogMatches(
     maxPrice?: number;
     minPricePerM2?: number;
     maxPricePerM2?: number;
+    rooms?: number[];
+    bathrooms?: number[];
     minRooms?: number;
     minBathrooms?: number;
     minAreaM2?: number;
     maxAreaM2?: number;
     propertyType?: string;
+    propertyTypes?: string[];
     energyCert?: string;
     isNewBuild?: boolean;
     hasParking?: boolean;
@@ -165,28 +244,50 @@ export function countCatalogMatches(
 ) {
   const q = filters.q?.trim().toLowerCase();
   const city = filters.city?.trim().toLowerCase();
+  const types = filters.propertyTypes?.length
+    ? filters.propertyTypes
+    : filters.propertyType
+      ? [filters.propertyType]
+      : [];
 
   return catalog.filter((item) => {
     if (city && !item.city.toLowerCase().includes(city)) return false;
     if (q) {
-      const hay = `${item.title} ${item.address} ${item.neighborhood} ${item.city}`.toLowerCase();
+      const hay =
+        `${item.title} ${item.address} ${item.neighborhood} ${item.city}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     if (filters.minPrice != null && item.price < filters.minPrice) return false;
     if (filters.maxPrice != null && item.price > filters.maxPrice) return false;
-    if (filters.minRooms != null && item.rooms < filters.minRooms) return false;
-    if (filters.minBathrooms != null && item.bathrooms < filters.minBathrooms) {
+
+    if (filters.rooms?.length) {
+      const ok = filters.rooms.some((r) =>
+        r >= 4 ? item.rooms >= 4 : item.rooms === r,
+      );
+      if (!ok) return false;
+    } else if (filters.minRooms != null && item.rooms < filters.minRooms) {
       return false;
     }
+
+    if (filters.bathrooms?.length) {
+      const ok = filters.bathrooms.some((b) =>
+        b >= 3 ? item.bathrooms >= 3 : item.bathrooms === b,
+      );
+      if (!ok) return false;
+    } else if (
+      filters.minBathrooms != null &&
+      item.bathrooms < filters.minBathrooms
+    ) {
+      return false;
+    }
+
     if (filters.minAreaM2 != null && item.areaM2 < filters.minAreaM2) {
       return false;
     }
     if (filters.maxAreaM2 != null && item.areaM2 > filters.maxAreaM2) {
       return false;
     }
-    if (filters.propertyType && item.propertyType !== filters.propertyType) {
-      return false;
-    }
+    if (types.length && !types.includes(item.propertyType)) return false;
     if (filters.energyCert && item.energyCert !== filters.energyCert) {
       return false;
     }

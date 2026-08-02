@@ -1,23 +1,60 @@
 "use client";
 
+import { LocationSearchInput } from "@/components/search/location-search-input";
 import { RangeSlider } from "@/components/search/range-slider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   countCatalogMatches,
   type FilterCatalogItem,
 } from "@/lib/listings";
 import { cn, formatPrice } from "@/lib/utils";
-import { ArrowRight, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  DoorOpen,
+  Home,
+  Landmark,
+  Layers,
+  TreePine,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+
+const PROPERTY_TYPE_OPTIONS: {
+  type: string;
+  icon: LucideIcon;
+}[] = [
+  { type: "APARTMENT", icon: Building2 },
+  { type: "HOUSE", icon: Home },
+  { type: "VILLA", icon: TreePine },
+  { type: "PENTHOUSE", icon: Layers },
+  { type: "STUDIO", icon: DoorOpen },
+  { type: "TOWNHOUSE", icon: Landmark },
+];
 
 export const FILTER_BOUNDS = {
   price: { min: 0, max: 5_000_000, step: 25_000 },
   pricePerM2: { min: 0, max: 15_000, step: 50 },
   area: { min: 0, max: 500, step: 5 },
 } as const;
+
+function parseCsv(value?: string) {
+  return value
+    ? value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((v) => v !== value)
+    : [...values, value];
+}
 
 export type DraftFilters = {
   q: string;
@@ -28,9 +65,9 @@ export type DraftFilters = {
   maxPricePerM2: number;
   minAreaM2: number;
   maxAreaM2: number;
-  minRooms: string;
-  minBathrooms: string;
-  propertyType: string;
+  rooms: string[];
+  bathrooms: string[];
+  propertyTypes: string[];
   energyCert: string;
   sort: string;
   hasParking: boolean;
@@ -43,6 +80,18 @@ export type DraftFilters = {
 export function filtersFromInitial(
   initial: Record<string, string | undefined>,
 ): DraftFilters {
+  const rooms = parseCsv(initial.rooms);
+  const bathrooms = parseCsv(initial.bathrooms);
+  const propertyTypes = parseCsv(initial.propertyTypes);
+  // Back-compat with older single-value params
+  if (!rooms.length && initial.minRooms) rooms.push(initial.minRooms);
+  if (!bathrooms.length && initial.minBathrooms) {
+    bathrooms.push(initial.minBathrooms);
+  }
+  if (!propertyTypes.length && initial.propertyType) {
+    propertyTypes.push(initial.propertyType);
+  }
+
   return {
     q: initial.q ?? "",
     city: initial.city ?? "",
@@ -64,9 +113,9 @@ export function filtersFromInitial(
     maxAreaM2: initial.maxAreaM2
       ? Number(initial.maxAreaM2)
       : FILTER_BOUNDS.area.max,
-    minRooms: initial.minRooms ?? "",
-    minBathrooms: initial.minBathrooms ?? "",
-    propertyType: initial.propertyType ?? "",
+    rooms,
+    bathrooms,
+    propertyTypes,
     energyCert: initial.energyCert ?? "",
     sort: initial.sort ?? "featured",
     hasParking: initial.hasParking === "1",
@@ -99,9 +148,11 @@ export function draftToSearchParams(draft: DraftFilters): URLSearchParams {
   if (draft.maxAreaM2 < FILTER_BOUNDS.area.max) {
     params.set("maxAreaM2", String(draft.maxAreaM2));
   }
-  if (draft.minRooms) params.set("minRooms", draft.minRooms);
-  if (draft.minBathrooms) params.set("minBathrooms", draft.minBathrooms);
-  if (draft.propertyType) params.set("propertyType", draft.propertyType);
+  if (draft.rooms.length) params.set("rooms", draft.rooms.join(","));
+  if (draft.bathrooms.length) params.set("bathrooms", draft.bathrooms.join(","));
+  if (draft.propertyTypes.length) {
+    params.set("propertyTypes", draft.propertyTypes.join(","));
+  }
   if (draft.energyCert) params.set("energyCert", draft.energyCert);
   if (draft.sort && draft.sort !== "featured") params.set("sort", draft.sort);
   if (draft.hasParking) params.set("hasParking", "1");
@@ -195,11 +246,9 @@ export function SearchFiltersPanel({
         draft.minAreaM2 > FILTER_BOUNDS.area.min ? draft.minAreaM2 : undefined,
       maxAreaM2:
         draft.maxAreaM2 < FILTER_BOUNDS.area.max ? draft.maxAreaM2 : undefined,
-      minRooms: draft.minRooms ? Number(draft.minRooms) : undefined,
-      minBathrooms: draft.minBathrooms
-        ? Number(draft.minBathrooms)
-        : undefined,
-      propertyType: draft.propertyType || undefined,
+      rooms: draft.rooms.map(Number),
+      bathrooms: draft.bathrooms.map(Number),
+      propertyTypes: draft.propertyTypes,
       energyCert: draft.energyCert || undefined,
       hasParking: draft.hasParking || undefined,
       hasElevator: draft.hasElevator || undefined,
@@ -212,15 +261,6 @@ export function SearchFiltersPanel({
   function patch(partial: Partial<DraftFilters>) {
     setDraft((current) => ({ ...current, ...partial }));
   }
-
-  const propertyTypes = [
-    "APARTMENT",
-    "HOUSE",
-    "VILLA",
-    "PENTHOUSE",
-    "STUDIO",
-    "TOWNHOUSE",
-  ] as const;
 
   return (
     <div
@@ -255,41 +295,30 @@ export function SearchFiltersPanel({
             >
               {t("search.location")}
             </label>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pisome-muted"
-                aria-hidden
-              />
-              <Input
-                id="filter-q"
-                value={draft.q}
-                onChange={(e) => patch({ q: e.target.value })}
-                placeholder={t("search.placeholder")}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="filter-city"
-              className="text-xs font-semibold uppercase tracking-wide text-pisome-muted"
-            >
-              {t("search.city")}
-            </label>
-            <Select
-              id="filter-city"
-              value={draft.city}
-              onChange={(e) => patch({ city: e.target.value })}
-            >
-              <option value="">
-                {t("search.any")} {t("search.city").toLowerCase()}
-              </option>
-              <option value="Madrid">Madrid</option>
-              <option value="Barcelona">Barcelona</option>
-              <option value="Málaga">Málaga</option>
-              <option value="Valencia">Valencia</option>
-            </Select>
+            <LocationSearchInput
+              id="filter-q"
+              value={draft.q}
+              catalog={catalog}
+              lang={locale}
+              placeholder={t("search.placeholder")}
+              cityLabel={t("search.suggestionCity")}
+              neighborhoodLabel={t("search.suggestionNeighborhood")}
+              streetLabel={t("search.suggestionStreet")}
+              onChange={(q) => patch({ q, city: "" })}
+              onSelectSuggestion={(suggestion) => {
+                if (suggestion.kind === "city") {
+                  patch({
+                    q: suggestion.value,
+                    city: suggestion.city ?? suggestion.value,
+                  });
+                } else {
+                  patch({
+                    q: suggestion.value,
+                    city: suggestion.city ?? "",
+                  });
+                }
+              }}
+            />
           </div>
 
           <RangeSlider
@@ -345,19 +374,16 @@ export function SearchFiltersPanel({
               {t("search.rooms")}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Chip
-                active={!draft.minRooms}
-                onClick={() => patch({ minRooms: "" })}
-              >
+              <Chip active={!draft.rooms.length} onClick={() => patch({ rooms: [] })}>
                 {t("search.any")}
               </Chip>
               {["1", "2", "3", "4"].map((n) => (
                 <Chip
                   key={n}
-                  active={draft.minRooms === n}
-                  onClick={() => patch({ minRooms: n })}
+                  active={draft.rooms.includes(n)}
+                  onClick={() => patch({ rooms: toggleValue(draft.rooms, n) })}
                 >
-                  {n}+
+                  {n === "4" ? "4+" : n}
                 </Chip>
               ))}
             </div>
@@ -369,18 +395,20 @@ export function SearchFiltersPanel({
             </p>
             <div className="flex flex-wrap gap-2">
               <Chip
-                active={!draft.minBathrooms}
-                onClick={() => patch({ minBathrooms: "" })}
+                active={!draft.bathrooms.length}
+                onClick={() => patch({ bathrooms: [] })}
               >
                 {t("search.any")}
               </Chip>
               {["1", "2", "3"].map((n) => (
                 <Chip
                   key={n}
-                  active={draft.minBathrooms === n}
-                  onClick={() => patch({ minBathrooms: n })}
+                  active={draft.bathrooms.includes(n)}
+                  onClick={() =>
+                    patch({ bathrooms: toggleValue(draft.bathrooms, n) })
+                  }
                 >
-                  {n}+
+                  {n === "3" ? "3+" : n}
                 </Chip>
               ))}
             </div>
@@ -390,22 +418,40 @@ export function SearchFiltersPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-pisome-muted">
               {t("search.type")}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Chip
-                active={!draft.propertyType}
-                onClick={() => patch({ propertyType: "" })}
-              >
-                {t("search.any")}
-              </Chip>
-              {propertyTypes.map((type) => (
-                <Chip
-                  key={type}
-                  active={draft.propertyType === type}
-                  onClick={() => patch({ propertyType: type })}
-                >
-                  {t(`propertyTypes.${type}`)}
-                </Chip>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {PROPERTY_TYPE_OPTIONS.map(({ type, icon: Icon }) => {
+                const active = draft.propertyTypes.includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      patch({
+                        propertyTypes: toggleValue(draft.propertyTypes, type),
+                      })
+                    }
+                    className={cn(
+                      "flex min-h-[5.25rem] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition",
+                      active
+                        ? "border-pisome-blue bg-pisome-blue text-white shadow-sm shadow-pisome-blue/25"
+                        : "border-pisome-border bg-white text-pisome-navy hover:border-pisome-blue/45 hover:bg-pisome-alice",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-6 w-6 shrink-0",
+                        active ? "text-white" : "text-pisome-blue",
+                      )}
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    <span className="text-xs font-semibold leading-tight">
+                      {t(`propertyTypes.${type}`)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -473,8 +519,14 @@ export function SearchFiltersPanel({
               onChange={(e) => patch({ sort: e.target.value })}
             >
               <option value="featured">{t("search.sortFeatured")}</option>
+              <option value="newest">{t("search.sortNewest")}</option>
+              <option value="oldest">{t("search.sortOldest")}</option>
               <option value="price_asc">{t("search.sortPriceAsc")}</option>
               <option value="price_desc">{t("search.sortPriceDesc")}</option>
+              <option value="area_asc">{t("search.sortAreaAsc")}</option>
+              <option value="area_desc">{t("search.sortAreaDesc")}</option>
+              <option value="ppm_asc">{t("search.sortPpmAsc")}</option>
+              <option value="ppm_desc">{t("search.sortPpmDesc")}</option>
             </Select>
           </div>
         </div>
