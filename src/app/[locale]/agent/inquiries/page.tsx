@@ -24,7 +24,7 @@ export default async function InquiriesPage({
       OR: [{ agentId: session.user.id }, { listing: { agentId: session.user.id } }],
     },
     include: {
-      listing: { select: { title: true, slug: true } },
+      listing: { select: { title: true, slug: true, address: true } },
     },
     orderBy: { createdAt: "desc" },
   });

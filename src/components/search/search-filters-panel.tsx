@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import {
   countCatalogMatches,
   type FilterCatalogItem,
-} from "@/lib/listings";
+} from "@/lib/filter-catalog";
 import { cn, formatPrice } from "@/lib/utils";
 import {
   ArrowRight,

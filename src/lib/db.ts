@@ -1,3 +1,5 @@
+import "server-only";
+
 import { PrismaClient } from "@prisma/client";
 import { copyFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -14,7 +16,9 @@ function isServerlessRuntime() {
 
 function fileUrlToPath(url: string) {
   const raw = url.replace(/^file:/, "");
-  return path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
+  return path.isAbsolute(raw)
+    ? raw
+    : path.join(/*turbopackIgnore: true*/ process.cwd(), raw);
 }
 
 /**
@@ -28,13 +32,14 @@ function resolveDatabaseUrl(): string {
     return fromEnv;
   }
 
+  const cwd = /*turbopackIgnore: true*/ process.cwd();
   const candidates: string[] = [];
   if (fromEnv.startsWith("file:")) {
     candidates.push(fileUrlToPath(fromEnv));
   }
   candidates.push(
-    path.join(process.cwd(), "prisma", "deploy.db"),
-    path.join(process.cwd(), "prisma", "dev.db"),
+    path.join(cwd, "prisma", "deploy.db"),
+    path.join(cwd, "prisma", "dev.db"),
   );
 
   const source = candidates.find((candidate) => existsSync(candidate));
