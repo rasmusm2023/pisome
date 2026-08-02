@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const schema = z.object({
   listingId: z.string(),
   name: z.string().min(1),

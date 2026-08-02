@@ -48,7 +48,7 @@ In Netlify → Site configuration → Environment variables, set at least:
 | `AUTH_URL` | `https://your-site.netlify.app` |
 | `NEXT_PUBLIC_APP_URL` | `https://your-site.netlify.app` |
 
-`DATABASE_URL` is already set in `netlify.toml` for the seeded SQLite file. For real production traffic, swap to hosted Postgres (Neon, Supabase, etc.) as noted above — SQLite on serverless is fine for demos, not durable writes.
+`DATABASE_URL` is already set in `netlify.toml` to `file:./deploy.db` (Prisma resolves that relative to `prisma/`, producing `prisma/deploy.db`). For real production traffic, swap to hosted Postgres (Neon, Supabase, etc.) as noted above — SQLite on serverless is fine for demos, not durable writes.
 
 - **MVP:** Buy/sell portal for Madrid, Barcelona, Málaga, Valencia
 - **Design:** HomeQ-inspired calm blue UI, photo-first listings

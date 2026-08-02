@@ -4,6 +4,8 @@ import { MIN_PHOTOS, slugify } from "@/lib/utils";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const listingSchema = z.object({
   title: z.string().min(3),
   titleEn: z.string().optional(),

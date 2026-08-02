@@ -6,19 +6,24 @@ import path from "node:path";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function isServerlessRuntime() {
+/**
+ * Only real Lambda invocations need the /tmp copy.
+ * Do NOT treat `NETLIFY=true` as serverless — that env is also set during
+ * `next build` on Netlify CI, where the DB lives at prisma/deploy.db.
+ */
+function isLambdaRuntime() {
   return Boolean(
-    process.env.NETLIFY ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.LAMBDA_TASK_ROOT,
+    process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT,
   );
 }
 
-function fileUrlToPath(url: string) {
-  const raw = url.replace(/^file:/, "");
-  return path.isAbsolute(raw)
-    ? raw
-    : path.join(/*turbopackIgnore: true*/ process.cwd(), raw);
+function resolveSqlitePath(fileUrl: string) {
+  const raw = fileUrl.replace(/^file:/, "");
+  if (path.isAbsolute(raw)) return raw;
+
+  const cwd = /*turbopackIgnore: true*/ process.cwd();
+  // Prisma resolves SQLite relative paths against the schema directory.
+  return path.join(cwd, "prisma", raw.replace(/^\.\//, ""));
 }
 
 /**
@@ -28,19 +33,16 @@ function fileUrlToPath(url: string) {
 function resolveDatabaseUrl(): string {
   const fromEnv = process.env.DATABASE_URL ?? "file:./dev.db";
 
-  if (!isServerlessRuntime()) {
+  if (!isLambdaRuntime()) {
     return fromEnv;
   }
 
   const cwd = /*turbopackIgnore: true*/ process.cwd();
-  const candidates: string[] = [];
-  if (fromEnv.startsWith("file:")) {
-    candidates.push(fileUrlToPath(fromEnv));
-  }
-  candidates.push(
+  const candidates = [
+    fromEnv.startsWith("file:") ? resolveSqlitePath(fromEnv) : null,
     path.join(cwd, "prisma", "deploy.db"),
     path.join(cwd, "prisma", "dev.db"),
-  );
+  ].filter((p): p is string => Boolean(p));
 
   const source = candidates.find((candidate) => existsSync(candidate));
   if (!source) {
