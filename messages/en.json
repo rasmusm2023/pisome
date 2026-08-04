@@ -7,6 +7,7 @@
     "list": "List a home",
     "saved": "Saved",
     "signIn": "Sign in",
+    "signUp": "Sign up",
     "signOut": "Sign out",
     "agent": "Agent workspace",
     "buy": "Buy",
@@ -124,11 +125,17 @@
   },
   "auth": {
     "title": "Sign in to Pisome",
+    "signUpTitle": "Create your Pisome account",
+    "name": "Name",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
+    "signUpSubmit": "Sign up",
     "demoHint": "Demo: seeker@pisome.es / agent@pisome.es — password: pisome123",
-    "error": "Invalid email or password"
+    "error": "Invalid email or password",
+    "signUpError": "Couldn’t create account. Try a different email.",
+    "haveAccount": "Already have an account?",
+    "needAccount": "New here?"
   },
   "agent": {
     "dashboard": "Dashboard",

@@ -38,12 +38,17 @@ export default async function SearchPage({
     .filter((n) => !Number.isNaN(n));
   const propertyTypes = parseCsv(get("propertyTypes")) as PropertyType[];
   const legacyType = get("propertyType") as PropertyType | undefined;
+  const locations = (get("locations") ?? "")
+    .split("|")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   const [listings, catalog] = await Promise.all([
     searchListings({
       purpose: "SALE",
-      q: get("q"),
-      city: get("city"),
+      q: locations.length ? undefined : get("q"),
+      locations: locations.length ? locations : undefined,
+      city: locations.length ? undefined : get("city"),
       minPrice: get("minPrice") ? Number(get("minPrice")) : undefined,
       maxPrice: get("maxPrice") ? Number(get("maxPrice")) : undefined,
       minPricePerM2: get("minPricePerM2")
@@ -86,6 +91,7 @@ export default async function SearchPage({
       catalog={catalog}
       initialFilters={{
         q: get("q"),
+        locations: get("locations"),
         city: get("city"),
         minPrice: get("minPrice"),
         maxPrice: get("maxPrice"),

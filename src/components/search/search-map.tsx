@@ -7,6 +7,19 @@ import maplibregl, {
   type Marker,
 } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+import Supercluster from "supercluster";
+
+const AREAS_SOURCE_ID = "pisome-selected-areas";
+const AREAS_FILL_LAYER_ID = "pisome-selected-areas-fill";
+const AREAS_LINE_LAYER_ID = "pisome-selected-areas-line";
+const AREA_FILL = "rgba(37, 99, 235, 0.14)";
+const AREA_BORDER = "rgba(37, 99, 235, 0.72)";
+
+type AreaFeature = {
+  type: "Feature";
+  properties: { name: string; query: string };
+  geometry: GeoJSON.Geometry;
+};
 
 export type MapListing = {
   id: string;
@@ -27,6 +40,16 @@ export type MapListing = {
   propertyTypeLabel: string;
   publishedAt: string | null;
 };
+
+type ListingPointProps = {
+  listingId: string;
+};
+
+type ClusterFeature = Supercluster.ClusterFeature<ListingPointProps>;
+type PointFeature = Supercluster.PointFeature<ListingPointProps>;
+
+const CLUSTER_RADIUS_PX = 56;
+const CLUSTER_MAX_ZOOM = 16;
 
 function formatListedAgo(publishedAt: string | null, locale: string) {
   if (!publishedAt) {
@@ -71,6 +94,41 @@ function markerColors(listing: MapListing, selected: boolean) {
     return { bg: "#1d4ed8", border: "#1e40af", text: "#ffffff" };
   }
   return { bg: "#2563eb", border: "#1d4ed8", text: "#ffffff" };
+}
+
+function clusterDotSize(count: number) {
+  if (count >= 100) return 52;
+  if (count >= 25) return 44;
+  if (count >= 10) return 38;
+  return 32;
+}
+
+function createClusterElement(count: number, onExpand: () => void) {
+  const wrap = document.createElement("div");
+  wrap.className = "pisome-marker pisome-marker--cluster";
+  wrap.style.setProperty("--marker-bg", "#2563eb");
+  wrap.style.setProperty("--marker-border", "#1d4ed8");
+  wrap.style.setProperty("--marker-text", "#ffffff");
+
+  const size = clusterDotSize(count);
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "pisome-marker__cluster";
+  btn.style.width = `${size}px`;
+  btn.style.height = `${size}px`;
+  btn.style.fontSize = count >= 100 ? "14px" : count >= 10 ? "13px" : "12px";
+  btn.textContent = String(count);
+  btn.setAttribute(
+    "aria-label",
+    count === 1 ? "1 listing" : `${count} listings`,
+  );
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onExpand();
+  });
+
+  wrap.append(btn);
+  return wrap;
 }
 
 function createMarkerElement(
@@ -276,7 +334,7 @@ function fitToListings(map: MapLibreMap, listings: MapListing[]) {
   });
 }
 
-function placeMarker(
+function placeListingMarker(
   map: MapLibreMap,
   listing: MapListing,
   locale: string,
@@ -298,6 +356,134 @@ function placeMarker(
     .addTo(map);
 }
 
+function listingsToFeatures(
+  listings: MapListing[],
+): PointFeature[] {
+  return listings.map((listing) => ({
+    type: "Feature",
+    properties: { listingId: listing.id },
+    geometry: {
+      type: "Point",
+      coordinates: [listing.lng, listing.lat],
+    },
+  }));
+}
+
+function buildClusterIndex(
+  listings: MapListing[],
+  excludeId?: string | null,
+) {
+  const index = new Supercluster<ListingPointProps>({
+    radius: CLUSTER_RADIUS_PX,
+    maxZoom: CLUSTER_MAX_ZOOM,
+    minPoints: 2,
+  });
+  const points = excludeId
+    ? listings.filter((l) => l.id !== excludeId)
+    : listings;
+  index.load(listingsToFeatures(points));
+  return index;
+}
+
+function emptyAreasCollection(): GeoJSON.FeatureCollection {
+  return { type: "FeatureCollection", features: [] };
+}
+
+function ensureAreasLayers(map: MapLibreMap) {
+  if (!map.getSource(AREAS_SOURCE_ID)) {
+    map.addSource(AREAS_SOURCE_ID, {
+      type: "geojson",
+      data: emptyAreasCollection(),
+    });
+  }
+  if (!map.getLayer(AREAS_FILL_LAYER_ID)) {
+    map.addLayer({
+      id: AREAS_FILL_LAYER_ID,
+      type: "fill",
+      source: AREAS_SOURCE_ID,
+      paint: {
+        "fill-color": AREA_FILL,
+        "fill-opacity": 1,
+      },
+    });
+  }
+  if (!map.getLayer(AREAS_LINE_LAYER_ID)) {
+    map.addLayer({
+      id: AREAS_LINE_LAYER_ID,
+      type: "line",
+      source: AREAS_SOURCE_ID,
+      paint: {
+        "line-color": AREA_BORDER,
+        "line-width": 2.25,
+        "line-opacity": 1,
+      },
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+    });
+  }
+}
+
+function setAreasData(map: MapLibreMap, features: AreaFeature[]) {
+  ensureAreasLayers(map);
+  const source = map.getSource(AREAS_SOURCE_ID) as
+    | maplibregl.GeoJSONSource
+    | undefined;
+  source?.setData({
+    type: "FeatureCollection",
+    features,
+  });
+}
+
+function fitToAreas(map: MapLibreMap, features: AreaFeature[]) {
+  if (features.length === 0) return;
+
+  const bounds = new maplibregl.LngLatBounds();
+  let hasCoord = false;
+
+  const extendCoords = (coords: unknown) => {
+    if (!Array.isArray(coords)) return;
+    if (typeof coords[0] === "number" && typeof coords[1] === "number") {
+      bounds.extend([coords[0] as number, coords[1] as number]);
+      hasCoord = true;
+      return;
+    }
+    for (const child of coords) extendCoords(child);
+  };
+
+  for (const feature of features) {
+    const geometry = feature.geometry;
+    if (geometry.type === "GeometryCollection") {
+      for (const child of geometry.geometries) {
+        if ("coordinates" in child) extendCoords(child.coordinates);
+      }
+    } else if ("coordinates" in geometry) {
+      extendCoords(geometry.coordinates);
+    }
+  }
+
+  if (!hasCoord) return;
+  map.fitBounds(bounds, {
+    padding: 56,
+    maxZoom: 12,
+    duration: 500,
+  });
+}
+
+async function fetchAreaFeature(
+  query: string,
+  signal?: AbortSignal,
+): Promise<AreaFeature | null> {
+  const res = await fetch(
+    `/api/locations/boundary?q=${encodeURIComponent(query)}`,
+    { signal },
+  );
+  if (!res.ok) return null;
+  const data = (await res.json()) as { feature?: AreaFeature | null };
+  return data.feature ?? null;
+}
+
 export function SearchMap({
   listings,
   locale,
@@ -306,6 +492,7 @@ export function SearchMap({
   onBoundsChange,
   selectedId,
   hoveredId,
+  selectedLocations = [],
 }: {
   listings: MapListing[];
   locale: string;
@@ -314,10 +501,15 @@ export function SearchMap({
   onBoundsChange?: (bounds: MapBounds) => void;
   selectedId?: string | null;
   hoveredId?: string | null;
+  selectedLocations?: string[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const markersByIdRef = useRef<Map<string, Marker>>(new Map());
+  const markersByKeyRef = useRef<Map<string, Marker>>(new Map());
+  const clusterIndexRef = useRef<Supercluster<ListingPointProps> | null>(null);
+  const listingsByIdRef = useRef<Map<string, MapListing>>(new Map());
+  const areaCacheRef = useRef<Map<string, AreaFeature | null>>(new Map());
+  const areasFeaturesRef = useRef<AreaFeature[]>([]);
   const listingsRef = useRef(listings);
   const onSelectRef = useRef(onSelect);
   const onOpenListingRef = useRef(onOpenListing);
@@ -327,6 +519,10 @@ export function SearchMap({
   const prevHoveredIdRef = useRef(hoveredId);
   const localeRef = useRef(locale);
   const boundsTimerRef = useRef<number | null>(null);
+  const refreshMarkersRef = useRef<(opts?: { animate?: boolean }) => void>(
+    () => {},
+  );
+
   listingsRef.current = listings;
   onSelectRef.current = onSelect;
   onOpenListingRef.current = onOpenListing;
@@ -335,6 +531,7 @@ export function SearchMap({
   localeRef.current = locale;
 
   const listingKey = listings.map((l) => l.id).join(",");
+  const locationsKey = selectedLocations.join("|");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -377,17 +574,176 @@ export function SearchMap({
       }, 200);
     };
 
+    const refreshMarkers = (opts?: { animate?: boolean }) => {
+      const index = clusterIndexRef.current;
+      if (!index) return;
+
+      const animate = opts?.animate !== false;
+      const selected = selectedIdRef.current ?? null;
+      const hovered = prevHoveredIdRef.current ?? null;
+      const handleSelect = (slug: string) => onSelectRef.current?.(slug);
+      const handleOpen = (slug: string) => onOpenListingRef.current?.(slug);
+
+      const bounds = map.getBounds();
+      const zoom = Math.max(0, Math.floor(map.getZoom()));
+      const pad = 0.05;
+      const bbox: [number, number, number, number] = [
+        bounds.getWest() - pad,
+        bounds.getSouth() - pad,
+        bounds.getEast() + pad,
+        bounds.getNorth() + pad,
+      ];
+
+      const features = index.getClusters(bbox, zoom);
+      const nextKeys = new Set<string>();
+
+      const expandCluster = (clusterId: number, lng: number, lat: number) => {
+        const expansionZoom = Math.min(
+          index.getClusterExpansionZoom(clusterId),
+          map.getMaxZoom(),
+        );
+        map.easeTo({
+          center: [lng, lat],
+          zoom: expansionZoom,
+          duration: 400,
+        });
+      };
+
+      for (const feature of features) {
+        const [lng, lat] = feature.geometry.coordinates;
+        const props = feature.properties;
+
+        if ("cluster" in props && props.cluster) {
+          const cluster = feature as ClusterFeature;
+          const clusterId = cluster.properties.cluster_id;
+          const count = cluster.properties.point_count;
+          const key = `cluster:${clusterId}`;
+          nextKeys.add(key);
+
+          const existing = markersByKeyRef.current.get(key);
+          if (existing) {
+            existing.setLngLat([lng, lat]);
+            continue;
+          }
+
+          const el = createClusterElement(count, () =>
+            expandCluster(clusterId, lng, lat),
+          );
+          const marker = new maplibregl.Marker({
+            element: el,
+            anchor: "center",
+          })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          markersByKeyRef.current.set(key, marker);
+          continue;
+        }
+
+        const listingId = (props as ListingPointProps).listingId;
+        const listing = listingsByIdRef.current.get(listingId);
+        if (!listing) continue;
+
+        const key = `listing:${listingId}`;
+        nextKeys.add(key);
+
+        const existing = markersByKeyRef.current.get(key);
+        if (existing) {
+          existing.setLngLat([listing.lng, listing.lat]);
+          if (listingId === hovered) {
+            existing.getElement().classList.add("is-hovered");
+          } else {
+            existing.getElement().classList.remove("is-hovered");
+          }
+          continue;
+        }
+
+        const marker = placeListingMarker(
+          map,
+          listing,
+          localeRef.current,
+          false,
+          handleSelect,
+          handleOpen,
+          animate,
+        );
+        if (listingId === hovered) {
+          marker.getElement().classList.add("is-hovered");
+        }
+        markersByKeyRef.current.set(key, marker);
+      }
+
+      if (selected) {
+        const listing = listingsByIdRef.current.get(selected);
+        if (listing) {
+          const key = `listing:${selected}`;
+          nextKeys.add(key);
+          const existing = markersByKeyRef.current.get(key);
+          const isExpanded = existing
+            ?.getElement()
+            .classList.contains("is-expanded");
+
+          if (!existing || !isExpanded) {
+            existing?.remove();
+            const marker = placeListingMarker(
+              map,
+              listing,
+              localeRef.current,
+              true,
+              handleSelect,
+              handleOpen,
+              animate && !existing,
+            );
+            if (selected === hovered) {
+              marker.getElement().classList.add("is-hovered");
+            }
+            markersByKeyRef.current.set(key, marker);
+          } else {
+            existing.setLngLat([listing.lng, listing.lat]);
+          }
+        }
+      }
+
+      for (const [key, marker] of markersByKeyRef.current) {
+        if (!nextKeys.has(key)) {
+          marker.remove();
+          markersByKeyRef.current.delete(key);
+        }
+      }
+    };
+
+    refreshMarkersRef.current = refreshMarkers;
+
     const markReady = () => {
       map.resize();
+      ensureAreasLayers(map);
       fitToListings(map, listingsRef.current);
+      refreshMarkers({ animate: true });
       emitBounds();
     };
 
     map.once("load", markReady);
     map.once("idle", markReady);
 
-    map.on("moveend", emitBounds);
-    map.on("zoomend", emitBounds);
+    map.on("styledata", () => {
+      if (!map.isStyleLoaded()) return;
+      ensureAreasLayers(map);
+      const source = map.getSource(AREAS_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      source?.setData({
+        type: "FeatureCollection",
+        features: areasFeaturesRef.current,
+      });
+    });
+
+    map.on("moveend", () => {
+      refreshMarkers({ animate: false });
+      emitBounds();
+    });
+    map.on("zoomend", () => {
+      refreshMarkers({ animate: false });
+      emitBounds();
+    });
 
     map.on("click", () => {
       // MapLibre only fires click when press+release without a pan/drag
@@ -411,83 +767,29 @@ export function SearchMap({
         window.clearTimeout(boundsTimerRef.current);
       }
       ro.disconnect();
-      markersByIdRef.current.forEach((m) => m.remove());
-      markersByIdRef.current.clear();
+      markersByKeyRef.current.forEach((m) => m.remove());
+      markersByKeyRef.current.clear();
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Rebuild markers only when the listing set (or locale) changes — not on select.
+  // Rebuild cluster index when listing set or selection changes, then refresh.
   useEffect(() => {
+    const byId = new Map<string, MapListing>();
+    listings.forEach((l) => byId.set(l.id, l));
+    listingsByIdRef.current = byId;
+    // Keep the selected listing out of clusters so its card can expand alone.
+    clusterIndexRef.current = buildClusterIndex(listings, selectedId);
+
     const map = mapRef.current;
     if (!map) return;
 
-    markersByIdRef.current.forEach((m) => m.remove());
-    markersByIdRef.current.clear();
-
-    const selected = selectedIdRef.current ?? null;
-    const hovered = prevHoveredIdRef.current ?? null;
-    const handleSelect = (slug: string) => onSelectRef.current?.(slug);
-    const handleOpen = (slug: string) => onOpenListingRef.current?.(slug);
-
-    listings.forEach((listing) => {
-      const marker = placeMarker(
-        map,
-        listing,
-        locale,
-        listing.id === selected,
-        handleSelect,
-        handleOpen,
-        true,
-      );
-      if (listing.id === hovered) {
-        marker.getElement().classList.add("is-hovered");
-      }
-      markersByIdRef.current.set(listing.id, marker);
-    });
-
-    prevSelectedIdRef.current = selected;
-  }, [listingKey, locale, listings]);
-
-  // Selection: only replace the markers whose expanded state changed.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const prev = prevSelectedIdRef.current ?? null;
-    const next = selectedId ?? null;
-    if (prev === next) return;
-
-    const handleSelect = (slug: string) => onSelectRef.current?.(slug);
-    const handleOpen = (slug: string) => onOpenListingRef.current?.(slug);
-    const hovered = prevHoveredIdRef.current ?? null;
-
-    const replace = (id: string, selected: boolean) => {
-      const listing = listingsRef.current.find((l) => l.id === id);
-      const existing = markersByIdRef.current.get(id);
-      if (!listing || !existing) return;
-      existing.remove();
-      const marker = placeMarker(
-        map,
-        listing,
-        localeRef.current,
-        selected,
-        handleSelect,
-        handleOpen,
-        false,
-      );
-      if (id === hovered) {
-        marker.getElement().classList.add("is-hovered");
-      }
-      markersByIdRef.current.set(id, marker);
-    };
-
-    if (prev) replace(prev, false);
-    if (next) replace(next, true);
-
-    prevSelectedIdRef.current = next;
-  }, [selectedId]);
+    markersByKeyRef.current.forEach((m) => m.remove());
+    markersByKeyRef.current.clear();
+    refreshMarkersRef.current({ animate: prevSelectedIdRef.current === selectedId });
+    prevSelectedIdRef.current = selectedId ?? null;
+  }, [listingKey, locale, listings, selectedId]);
 
   // List hover: scale the matching collapsed dot only — no expand/rebuild.
   useEffect(() => {
@@ -496,10 +798,16 @@ export function SearchMap({
     if (prev === next) return;
 
     if (prev) {
-      markersByIdRef.current.get(prev)?.getElement().classList.remove("is-hovered");
+      markersByKeyRef.current
+        .get(`listing:${prev}`)
+        ?.getElement()
+        .classList.remove("is-hovered");
     }
     if (next) {
-      markersByIdRef.current.get(next)?.getElement().classList.add("is-hovered");
+      markersByKeyRef.current
+        .get(`listing:${next}`)
+        ?.getElement()
+        .classList.add("is-hovered");
     }
 
     prevHoveredIdRef.current = next;
@@ -508,9 +816,12 @@ export function SearchMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || listings.length === 0) return;
+    // When location areas are selected, that effect owns the camera.
+    if (selectedLocations.length > 0) return;
 
     const run = () => {
       fitToListings(map, listings);
+      refreshMarkersRef.current({ animate: true });
       const b = map.getBounds();
       onBoundsChangeRef.current?.({
         west: b.getWest(),
@@ -523,6 +834,80 @@ export function SearchMap({
     else map.once("load", run);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingKey]);
+
+  // Draw translucent area highlights for selected search locations.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const applyFeatures = (features: AreaFeature[], fit: boolean) => {
+      areasFeaturesRef.current = features;
+      const apply = () => {
+        setAreasData(map, features);
+        if (fit && features.length > 0) {
+          fitToAreas(map, features);
+          window.setTimeout(() => {
+            const b = map.getBounds();
+            onBoundsChangeRef.current?.({
+              west: b.getWest(),
+              east: b.getEast(),
+              south: b.getSouth(),
+              north: b.getNorth(),
+            });
+            refreshMarkersRef.current({ animate: false });
+          }, 520);
+        }
+      };
+      if (map.isStyleLoaded()) apply();
+      else map.once("load", apply);
+    };
+
+    const run = async () => {
+      const queries = selectedLocations
+        .map((q) => q.trim())
+        .filter(Boolean);
+
+      if (queries.length === 0) {
+        applyFeatures([], false);
+        return;
+      }
+
+      const results = await Promise.all(
+        queries.map(async (query) => {
+          const cacheKey = query.toLowerCase();
+          if (areaCacheRef.current.has(cacheKey)) {
+            return areaCacheRef.current.get(cacheKey) ?? null;
+          }
+          try {
+            const feature = await fetchAreaFeature(query, controller.signal);
+            areaCacheRef.current.set(cacheKey, feature);
+            return feature;
+          } catch (err) {
+            if ((err as Error).name !== "AbortError") {
+              areaCacheRef.current.set(cacheKey, null);
+            }
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) return;
+      applyFeatures(
+        results.filter((f): f is AreaFeature => Boolean(f)),
+        true,
+      );
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [locationsKey, selectedLocations]);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-pisome-border bg-[#f8f4f0]">

@@ -7,6 +7,7 @@
     "list": "Publicar",
     "saved": "Guardados",
     "signIn": "Entrar",
+    "signUp": "Registrarse",
     "signOut": "Salir",
     "agent": "Espacio agente",
     "buy": "Comprar",
@@ -124,11 +125,17 @@
   },
   "auth": {
     "title": "Entrar en Pisome",
+    "signUpTitle": "Crea tu cuenta en Pisome",
+    "name": "Nombre",
     "email": "Email",
     "password": "Contraseña",
     "submit": "Entrar",
+    "signUpSubmit": "Registrarse",
     "demoHint": "Demo: seeker@pisome.es / agent@pisome.es — contraseña: pisome123",
-    "error": "Email o contraseña incorrectos"
+    "error": "Email o contraseña incorrectos",
+    "signUpError": "No se pudo crear la cuenta. Prueba con otro email.",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "needAccount": "¿Nuevo en Pisome?"
   },
   "agent": {
     "dashboard": "Panel",

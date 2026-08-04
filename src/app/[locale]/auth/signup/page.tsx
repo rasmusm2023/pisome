@@ -7,7 +7,7 @@ import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
   const router = useRouter();
@@ -19,14 +19,30 @@ export default function SignInPage() {
     setLoading(true);
     setError(false);
     const form = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: form.get("email"),
-      password: form.get("password"),
+    const name = String(form.get("name") ?? "");
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!res.ok) {
+      setLoading(false);
+      setError(true);
+      return;
+    }
+
+    const signedIn = await signIn("credentials", {
+      email,
+      password,
       redirect: false,
     });
     setLoading(false);
-    if (res?.error) {
-      setError(true);
+    if (signedIn?.error) {
+      router.push("/auth/signin");
       return;
     }
     router.push("/");
@@ -36,36 +52,43 @@ export default function SignInPage() {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-4 py-12">
       <h1 className="font-display text-3xl font-semibold text-pisome-navy">
-        {t("title")}
+        {t("signUpTitle")}
       </h1>
-      <p className="mt-2 text-sm text-pisome-muted">{t("demoHint")}</p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
+        <Input
+          name="name"
+          type="text"
+          required
+          autoComplete="name"
+          placeholder={t("name")}
+        />
         <Input
           name="email"
           type="email"
           required
+          autoComplete="email"
           placeholder={t("email")}
-          defaultValue="seeker@pisome.es"
         />
         <Input
           name="password"
           type="password"
           required
+          minLength={6}
+          autoComplete="new-password"
           placeholder={t("password")}
-          defaultValue="pisome123"
         />
         <Button type="submit" className="w-full" disabled={loading}>
-          {t("submit")}
+          {t("signUpSubmit")}
         </Button>
-        {error && <p className="text-sm text-red-600">{t("error")}</p>}
+        {error && <p className="text-sm text-red-600">{t("signUpError")}</p>}
       </form>
       <p className="mt-6 text-sm text-pisome-muted">
-        {t("needAccount")}{" "}
+        {t("haveAccount")}{" "}
         <Link
-          href="/auth/signup"
+          href="/auth/signin"
           className="font-medium text-pisome-blue hover:text-pisome-blue-dark"
         >
-          {tNav("signUp")}
+          {tNav("signIn")}
         </Link>
       </p>
     </div>

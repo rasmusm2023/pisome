@@ -25,6 +25,21 @@ import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "
 
 type ListingResult = Listing & { media: ListingMedia[] };
 
+function parseLocationsParam(value?: string) {
+  if (!value) return [];
+  return value
+    .split("|")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function locationsFromFilters(filters: Record<string, string | undefined>) {
+  const fromParam = parseLocationsParam(filters.locations);
+  if (fromParam.length) return fromParam;
+  if (filters.q?.trim()) return [filters.q.trim()];
+  return [];
+}
+
 function ListingResults({
   listings,
   layout,
@@ -93,6 +108,59 @@ function ListingResults({
   );
 }
 
+function ViewToggle({
+  view,
+  onChange,
+  listLabel,
+  mapLabel,
+}: {
+  view: "split" | "list" | "map";
+  onChange: (view: "split" | "list" | "map") => void;
+  listLabel: string;
+  mapLabel: string;
+}) {
+  const listOn = view !== "map";
+  const mapOn = view !== "list";
+
+  return (
+    <div
+      className="flex shrink-0 overflow-hidden rounded-xl border border-pisome-border bg-white shadow-sm shadow-pisome-navy/5"
+      role="group"
+      aria-label="View"
+    >
+      <button
+        type="button"
+        aria-pressed={listOn}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors",
+          listOn
+            ? "bg-pisome-blue text-white"
+            : "bg-white text-pisome-muted hover:bg-pisome-alice hover:text-pisome-navy",
+        )}
+        onClick={() => onChange(view === "map" ? "split" : "list")}
+      >
+        <List className="h-3.5 w-3.5" aria-hidden />
+        {listLabel}
+      </button>
+      <button
+        type="button"
+        aria-pressed={mapOn}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold transition-colors",
+          mapOn
+            ? "bg-pisome-blue text-white"
+            : "bg-white text-pisome-muted hover:bg-pisome-alice hover:text-pisome-navy",
+          listOn !== mapOn && "border-l border-pisome-border",
+        )}
+        onClick={() => onChange(view === "list" ? "split" : "map")}
+      >
+        <MapIcon className="h-3.5 w-3.5" aria-hidden />
+        {mapLabel}
+      </button>
+    </div>
+  );
+}
+
 export function SearchExperience({
   listings,
   catalog,
@@ -114,11 +182,15 @@ export function SearchExperience({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
-  const [mainQuery, setMainQuery] = useState(initialFilters.q ?? "");
+  const [mainQuery, setMainQuery] = useState("");
+  const [locations, setLocations] = useState(() =>
+    locationsFromFilters(initialFilters),
+  );
 
   useEffect(() => {
-    setMainQuery(initialFilters.q ?? "");
-  }, [initialFilters.q]);
+    setLocations(locationsFromFilters(initialFilters));
+    setMainQuery("");
+  }, [initialFilters.locations, initialFilters.q]);
 
   useEffect(() => {
     const qs = searchParams.toString();
@@ -186,25 +258,42 @@ export function SearchExperience({
     });
   }
 
-  function onMainSearch(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function buildParamsWithLocations(nextLocations: string[]) {
     const params = new URLSearchParams();
     Object.entries(initialFilters).forEach(([key, value]) => {
-      if (value && key !== "q" && key !== "city") params.set(key, value);
+      if (
+        value &&
+        key !== "q" &&
+        key !== "city" &&
+        key !== "locations"
+      ) {
+        params.set(key, value);
+      }
     });
-    const q = mainQuery.trim();
-    if (q) params.set("q", q);
-    navigateSearch(params);
+    if (nextLocations.length) {
+      params.set("locations", nextLocations.join("|"));
+    }
+    return params;
   }
 
-  function applyMainSuggestion(value: string, city?: string) {
-    const params = new URLSearchParams();
-    Object.entries(initialFilters).forEach(([key, v]) => {
-      if (v && key !== "q" && key !== "city") params.set(key, v);
-    });
-    if (value.trim()) params.set("q", value.trim());
-    if (city) params.set("city", city);
-    navigateSearch(params);
+  function applyLocations(nextLocations: string[]) {
+    setLocations(nextLocations);
+    navigateSearch(buildParamsWithLocations(nextLocations));
+  }
+
+  function onMainSearch(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const typed = mainQuery.trim();
+    if (typed) {
+      const exists = locations.some(
+        (l) => l.toLowerCase() === typed.toLowerCase(),
+      );
+      const next = exists ? locations : [...locations, typed];
+      setMainQuery("");
+      applyLocations(next);
+      return;
+    }
+    applyLocations(locations);
   }
 
   async function saveSearch() {
@@ -214,10 +303,11 @@ export function SearchExperience({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name:
+          locations[0] ||
           initialFilters.q ||
           initialFilters.city ||
           t("search.saveSearchDefault"),
-        city: initialFilters.city,
+        city: initialFilters.city || locations[0],
         minPrice: initialFilters.minPrice
           ? Number(initialFilters.minPrice)
           : undefined,
@@ -238,49 +328,50 @@ export function SearchExperience({
     setTimeout(() => setSaveMsg(null), 2500);
   }
 
+  const titleAndToggle = (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <h1 className="font-display text-3xl font-semibold text-pisome-navy">
+        {t("search.title")}
+      </h1>
+      <ViewToggle
+        view={view}
+        onChange={setView}
+        listLabel={t("search.list")}
+        mapLabel={t("search.map")}
+      />
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-semibold text-pisome-navy">
-            {t("search.title")}
-          </h1>
-        </div>
-        <div className="flex rounded-xl border border-pisome-border bg-white p-1">
-          <button
-            type="button"
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "map" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
-            onClick={() => setView(view === "map" ? "split" : "list")}
-          >
-            <List className="mr-1 inline h-3.5 w-3.5" />
-            {t("search.list")}
-          </button>
-          <button
-            type="button"
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${view !== "list" ? "bg-pisome-alice text-pisome-navy" : "text-pisome-muted"}`}
-            onClick={() => setView(view === "list" ? "split" : "map")}
-          >
-            <MapIcon className="mr-1 inline h-3.5 w-3.5" />
-            {t("search.map")}
-          </button>
-        </div>
-      </div>
-
       <div
         className={cn(
-          "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
-          view === "map" ? "grid-cols-1" : "lg:grid-cols-[2fr_3fr]",
+          "pisome-search-layout grid",
+          view === "map"
+            ? "grid-cols-1 gap-0 lg:grid-cols-[0fr_minmax(0,1fr)]"
+            : "grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
         )}
       >
-        {view !== "map" && (
+        <div
+          className={cn(
+            "pisome-search-pane min-w-0 overflow-hidden",
+            view === "map" && "pisome-search-pane-exit max-lg:hidden",
+          )}
+          aria-hidden={view === "map"}
+        >
           <div
             className={cn(
-              "relative flex min-w-0 flex-col gap-3 overflow-hidden lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
+              "relative flex min-w-0 flex-col gap-3 lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
+              // Preserve width while the desktop grid column collapses.
+              view === "map" ? "lg:w-[min(100%,24rem)]" : "w-full",
             )}
           >
+            {titleAndToggle}
+
             <form onSubmit={onMainSearch} className="relative z-10 shrink-0">
               <LocationSearchInput
                 value={mainQuery}
+                tags={locations}
                 catalog={catalog}
                 lang={locale}
                 placeholder={t("search.placeholder")}
@@ -288,13 +379,18 @@ export function SearchExperience({
                 neighborhoodLabel={t("search.suggestionNeighborhood")}
                 streetLabel={t("search.suggestionStreet")}
                 onChange={setMainQuery}
-                onSelectSuggestion={(suggestion) => {
-                  setMainQuery(suggestion.value);
-                  applyMainSuggestion(
-                    suggestion.value,
-                    suggestion.kind === "city"
-                      ? (suggestion.city ?? suggestion.value)
-                      : suggestion.city,
+                onAddTag={(tag) => {
+                  const exists = locations.some(
+                    (l) => l.toLowerCase() === tag.toLowerCase(),
+                  );
+                  if (exists) return;
+                  applyLocations([...locations, tag]);
+                }}
+                onRemoveTag={(tag) => {
+                  applyLocations(
+                    locations.filter(
+                      (l) => l.toLowerCase() !== tag.toLowerCase(),
+                    ),
                   );
                 }}
               />
@@ -332,22 +428,27 @@ export function SearchExperience({
               {pending ? "…" : ""}
             </p>
 
-            {view === "split" && (
-              <div className="pisome-scroll-hidden min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
-                <ListingResults
-                  listings={visibleListings}
-                  layout="stack"
-                  hoveredSlug={hoveredSlug}
-                  selectedSlug={selectedSlug}
-                  onHover={setHoveredSlug}
-                  emptyLabel={
-                    listings.length > 0
-                      ? t("search.noResultsInMap")
-                      : t("search.noResults")
-                  }
-                />
-              </div>
-            )}
+            <div
+              className={cn(
+                "pisome-scroll-hidden min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                view === "split"
+                  ? "opacity-100"
+                  : "pointer-events-none h-0 grow-0 opacity-0",
+              )}
+            >
+              <ListingResults
+                listings={visibleListings}
+                layout="stack"
+                hoveredSlug={hoveredSlug}
+                selectedSlug={selectedSlug}
+                onHover={setHoveredSlug}
+                emptyLabel={
+                  listings.length > 0
+                    ? t("search.noResultsInMap")
+                    : t("search.noResults")
+                }
+              />
+            </div>
 
             <SearchFiltersPanel
               open={filtersOpen}
@@ -358,46 +459,58 @@ export function SearchExperience({
               onClose={() => setFiltersOpen(false)}
               onApply={(params) => {
                 setFiltersOpen(false);
+                // Keep multi-location tags unless the panel set its own location.
+                if (!params.get("q") && locations.length) {
+                  params.set("locations", locations.join("|"));
+                } else {
+                  params.delete("locations");
+                }
                 navigateSearch(params);
               }}
               onClear={() => {
                 setFiltersOpen(false);
+                setLocations([]);
                 navigateSearch(new URLSearchParams());
               }}
             />
           </div>
-        )}
+        </div>
 
         <div
           className={cn(
-            "flex min-w-0 flex-col gap-3 transition-opacity duration-300 ease-out",
+            "relative flex min-w-0 flex-col gap-3 transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
             view === "map"
               ? "h-[calc(100vh-8rem)]"
               : "h-[calc(100vh-11rem)] lg:sticky lg:top-20",
           )}
         >
-          {view === "list" ? (
-            <div
-              key="list-pane"
-              className="pisome-scroll-hidden min-h-0 flex-1 animate-[fade-up_0.35s_ease-out] overflow-y-auto overflow-x-hidden px-1.5 py-1"
-            >
-              <ListingResults
-                listings={listings}
-                layout="row"
-                hoveredSlug={hoveredSlug}
-                selectedSlug={selectedSlug}
-                onHover={setHoveredSlug}
-                emptyLabel={t("search.noResults")}
-              />
+          {view === "map" && (
+            <div className="pointer-events-none absolute left-3 top-3 z-20 sm:left-4 sm:top-4">
+              <div className="pointer-events-auto animate-[fade-up_0.35s_ease-out]">
+                <ViewToggle
+                  view={view}
+                  onChange={setView}
+                  listLabel={t("search.list")}
+                  mapLabel={t("search.map")}
+                />
+              </div>
             </div>
-          ) : (
+          )}
+
+          <div className="pisome-search-stage relative min-h-0 flex-1">
             <div
-              key="map-pane"
-              className="min-h-0 flex-1 animate-[fade-up_0.35s_ease-out]"
+              className={cn(
+                "absolute inset-0",
+                view === "list"
+                  ? "pointer-events-none z-0 translate-y-1 opacity-0"
+                  : "z-10 translate-y-0 opacity-100",
+              )}
+              aria-hidden={view === "list"}
             >
               <SearchMap
                 listings={mapListings}
                 locale={locale}
+                selectedLocations={locations}
                 selectedId={
                   visibleListings.find((l) => l.slug === selectedSlug)?.id ??
                   null
@@ -416,7 +529,26 @@ export function SearchExperience({
                 }}
               />
             </div>
-          )}
+
+            <div
+              className={cn(
+                "pisome-scroll-hidden absolute inset-0 overflow-y-auto overflow-x-hidden px-1.5 py-1",
+                view === "list"
+                  ? "z-10 translate-y-0 opacity-100"
+                  : "pointer-events-none z-0 translate-y-1 opacity-0",
+              )}
+              aria-hidden={view !== "list"}
+            >
+              <ListingResults
+                listings={listings}
+                layout="row"
+                hoveredSlug={hoveredSlug}
+                selectedSlug={selectedSlug}
+                onHover={setHoveredSlug}
+                emptyLabel={t("search.noResults")}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

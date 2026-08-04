@@ -21,6 +21,7 @@ export function countCatalogMatches(
   catalog: FilterCatalogItem[],
   filters: {
     q?: string;
+    locations?: string[];
     city?: string;
     minPrice?: number;
     maxPrice?: number;
@@ -42,6 +43,9 @@ export function countCatalogMatches(
     hasPool?: boolean;
   },
 ) {
+  const locations = (filters.locations ?? [])
+    .map((l) => l.trim().toLowerCase())
+    .filter(Boolean);
   const q = filters.q?.trim().toLowerCase();
   const city = filters.city?.trim().toLowerCase();
   const types = filters.propertyTypes?.length
@@ -52,10 +56,12 @@ export function countCatalogMatches(
 
   return catalog.filter((item) => {
     if (city && !item.city.toLowerCase().includes(city)) return false;
-    if (q) {
-      const hay =
-        `${item.title} ${item.address} ${item.neighborhood} ${item.city}`.toLowerCase();
-      if (!hay.includes(q)) return false;
+    const hay =
+      `${item.title} ${item.address} ${item.neighborhood} ${item.city}`.toLowerCase();
+    if (locations.length > 0) {
+      if (!locations.some((loc) => hay.includes(loc))) return false;
+    } else if (q && !hay.includes(q)) {
+      return false;
     }
     if (filters.minPrice != null && item.price < filters.minPrice) return false;
     if (filters.maxPrice != null && item.price > filters.maxPrice) return false;

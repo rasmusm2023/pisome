@@ -72,9 +72,16 @@ export function SiteHeader() {
               </Button>
             </>
           ) : (
-            <Link href="/auth/signin">
-              <Button size="sm">{t("nav.signIn")}</Button>
-            </Link>
+            <>
+              <Link href="/auth/signin">
+                <Button variant="outline" size="sm">
+                  {t("nav.signIn")}
+                </Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button size="sm">{t("nav.signUp")}</Button>
+              </Link>
+            </>
           )}
         </div>
 
@@ -116,13 +123,22 @@ export function SiteHeader() {
                 {t("nav.signOut")}
               </button>
             ) : (
-              <Link
-                href="/auth/signin"
-                className="rounded-lg px-3 py-3 text-sm font-medium text-pisome-blue"
-                onClick={() => setOpen(false)}
-              >
-                {t("nav.signIn")}
-              </Link>
+              <>
+                <Link
+                  href="/auth/signin"
+                  className="rounded-lg px-3 py-3 text-sm font-medium text-pisome-navy"
+                  onClick={() => setOpen(false)}
+                >
+                  {t("nav.signIn")}
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-lg px-3 py-3 text-sm font-semibold text-pisome-blue"
+                  onClick={() => setOpen(false)}
+                >
+                  {t("nav.signUp")}
+                </Link>
+              </>
             )}
           </div>
         </div>
