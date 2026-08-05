@@ -21,6 +21,8 @@ export type ListingFilters = {
   purpose?: ListingPurpose;
   city?: string;
   q?: string;
+  /** Multiple location queries — match if any location hits. */
+  locations?: string[];
   minPrice?: number;
   maxPrice?: number;
   minPricePerM2?: number;
@@ -54,7 +56,20 @@ export async function searchListings(filters: ListingFilters = {}) {
   if (filters.city) {
     where.city = { contains: filters.city };
   }
-  if (filters.q) {
+
+  const locations = (filters.locations ?? [])
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (locations.length > 0) {
+    and.push({
+      OR: locations.flatMap((loc) => [
+        { title: { contains: loc } },
+        { neighborhood: { contains: loc } },
+        { city: { contains: loc } },
+        { address: { contains: loc } },
+      ]),
+    });
+  } else if (filters.q) {
     and.push({
       OR: [
         { title: { contains: filters.q } },
