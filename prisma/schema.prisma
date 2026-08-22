@@ -79,6 +79,8 @@ model Listing {
   hasTerrace     Boolean        @default(false)
   hasPool        Boolean        @default(false)
   isNewBuild     Boolean        @default(false)
+  /// JSON array of AI / listing keyword tags, e.g. ["sea view","private pool"]
+  tags           String         @default("[]")
   address        String
   neighborhood   String
   city           String

@@ -147,16 +147,10 @@ export function LocationSearchInput({
     [local, remote],
   );
 
+  // Auto-select the first suggestion whenever the list changes so Enter commits immediately.
   useEffect(() => {
-    setActiveIndex(-1);
-  }, [value]);
-
-  useEffect(() => {
-    if (activeIndex < 0) return;
-    if (activeIndex >= suggestions.length) {
-      setActiveIndex(suggestions.length > 0 ? suggestions.length - 1 : -1);
-    }
-  }, [activeIndex, suggestions.length]);
+    setActiveIndex(suggestions.length > 0 && open ? 0 : -1);
+  }, [suggestions.length, open]);
 
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return;

@@ -74,6 +74,7 @@ export default async function SearchPage({
         : legacyType
           ? [legacyType]
           : undefined,
+      keywords: get("keywords")?.split("|").map((k) => k.trim()).filter(Boolean),
       energyCert: get("energyCert"),
       hasParking: get("hasParking") === "1",
       hasElevator: get("hasElevator") === "1",
@@ -105,6 +106,7 @@ export default async function SearchPage({
         maxAreaM2: get("maxAreaM2"),
         propertyTypes: get("propertyTypes"),
         propertyType: get("propertyType"),
+        keywords: get("keywords"),
         energyCert: get("energyCert"),
         sort: get("sort"),
         hasParking: get("hasParking"),

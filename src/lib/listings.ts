@@ -3,7 +3,30 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import type { ListingPurpose, PropertyType } from "@/lib/types";
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
+import { KEYWORD_CATALOG } from "@/lib/keyword-catalog";
 import { prisma } from "./db";
+
+function expandKeywordTerms(raw: string): string[] {
+  const q = raw.trim().toLowerCase();
+  if (!q) return [];
+  const terms = new Set<string>([raw.trim()]);
+
+  for (const def of KEYWORD_CATALOG) {
+    const candidates = [
+      def.value,
+      def.en,
+      def.es,
+      ...(def.aliases ?? []),
+    ].map((t) => t.toLowerCase());
+    if (candidates.some((c) => c === q || c.includes(q) || q.includes(c))) {
+      terms.add(def.value);
+      terms.add(def.en);
+      terms.add(def.es);
+    }
+  }
+
+  return [...terms];
+}
 
 export type { FilterCatalogItem } from "@/lib/filter-catalog";
 export type ListingSort =
@@ -37,6 +60,7 @@ export type ListingFilters = {
   maxAreaM2?: number;
   propertyType?: PropertyType;
   propertyTypes?: PropertyType[];
+  keywords?: string[];
   energyCert?: string;
   isNewBuild?: boolean;
   hasParking?: boolean;
@@ -77,6 +101,20 @@ export async function searchListings(filters: ListingFilters = {}) {
         { city: { contains: filters.q } },
         { address: { contains: filters.q } },
       ],
+    });
+  }
+
+  const keywords = (filters.keywords ?? []).map((k) => k.trim()).filter(Boolean);
+  for (const kw of keywords) {
+    const terms = expandKeywordTerms(kw);
+    and.push({
+      OR: terms.flatMap((term) => [
+        { title: { contains: term } },
+        { titleEn: { contains: term } },
+        { description: { contains: term } },
+        { descriptionEn: { contains: term } },
+        { tags: { contains: term } },
+      ]),
     });
   }
   if (filters.minPrice != null || filters.maxPrice != null) {

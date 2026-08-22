@@ -41,6 +41,8 @@ export function ListingMap({
     const el = document.createElement("div");
     el.className = "pisome-marker";
     el.style.setProperty("--marker-bg", "#2563eb");
+    el.style.setProperty("--marker-border", "#1d4ed8");
+    el.style.setProperty("--marker-text", "#ffffff");
 
     const btn = document.createElement("button");
     btn.type = "button";

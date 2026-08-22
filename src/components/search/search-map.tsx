@@ -910,7 +910,7 @@ export function SearchMap({
   }, [locationsKey, selectedLocations]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-pisome-border bg-[#f8f4f0]">
+    <div className="relative h-full w-full overflow-hidden bg-[#f8f4f0]">
       <div ref={containerRef} className="pisome-map" />
     </div>
   );

@@ -54,6 +54,8 @@
     "area": "Superficie",
     "type": "Tipo",
     "features": "Características",
+    "showMoreFeatures": "Ver más",
+    "showLessFeatures": "Ver menos",
     "energy": "Certificado energético",
     "newBuild": "Obra nueva",
     "parking": "Parking",
@@ -79,7 +81,10 @@
     "suggestionStreet": "Calle",
     "any": "Cualquiera",
     "min": "Mín",
-    "max": "Máx"
+    "max": "Máx",
+    "keywords": "Palabras clave",
+    "keywordsPlaceholder": "p. ej. vistas al mar, piscina privada, garaje",
+    "keywordsHint": "Busca en los detalles del anuncio y etiquetas generadas por IA"
   },
   "listing": {
     "rooms": "{count} hab.",

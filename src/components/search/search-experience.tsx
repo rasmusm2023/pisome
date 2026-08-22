@@ -343,13 +343,13 @@ export function SearchExperience({
   );
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden">
       <div
         className={cn(
-          "pisome-search-layout grid",
+          "pisome-search-layout grid h-full min-h-0",
           view === "map"
             ? "grid-cols-1 gap-0 lg:grid-cols-[0fr_minmax(0,1fr)]"
-            : "grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
+            : "grid-cols-1 grid-rows-[minmax(0,42%)_minmax(0,1fr)] gap-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-none",
         )}
       >
         <div
@@ -361,7 +361,7 @@ export function SearchExperience({
         >
           <div
             className={cn(
-              "relative flex min-w-0 flex-col gap-3 lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
+              "relative flex h-full min-w-0 flex-col gap-3 overflow-hidden px-4 py-4 sm:px-6 lg:px-8 lg:pr-4",
               // Preserve width while the desktop grid column collapses.
               view === "map" ? "lg:w-[min(100%,24rem)]" : "w-full",
             )}
@@ -459,12 +459,6 @@ export function SearchExperience({
               onClose={() => setFiltersOpen(false)}
               onApply={(params) => {
                 setFiltersOpen(false);
-                // Keep multi-location tags unless the panel set its own location.
-                if (!params.get("q") && locations.length) {
-                  params.set("locations", locations.join("|"));
-                } else {
-                  params.delete("locations");
-                }
                 navigateSearch(params);
               }}
               onClear={() => {
@@ -476,14 +470,7 @@ export function SearchExperience({
           </div>
         </div>
 
-        <div
-          className={cn(
-            "relative flex min-w-0 flex-col gap-3 transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            view === "map"
-              ? "h-[calc(100vh-8rem)]"
-              : "h-[calc(100vh-11rem)] lg:sticky lg:top-20",
-          )}
-        >
+        <div className="relative flex h-full min-h-0 min-w-0 flex-col">
           {view === "map" && (
             <div className="pointer-events-none absolute left-3 top-3 z-20 sm:left-4 sm:top-4">
               <div className="pointer-events-auto animate-[fade-up_0.35s_ease-out]">
@@ -532,7 +519,7 @@ export function SearchExperience({
 
             <div
               className={cn(
-                "pisome-scroll-hidden absolute inset-0 overflow-y-auto overflow-x-hidden px-1.5 py-1",
+                "pisome-scroll-hidden absolute inset-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8",
                 view === "list"
                   ? "z-10 translate-y-0 opacity-100"
                   : "pointer-events-none z-0 translate-y-1 opacity-0",

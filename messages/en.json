@@ -54,6 +54,8 @@
     "area": "Size",
     "type": "Type",
     "features": "Features",
+    "showMoreFeatures": "Show more",
+    "showLessFeatures": "Show less",
     "energy": "Energy certificate",
     "newBuild": "New build",
     "parking": "Parking",
@@ -79,7 +81,10 @@
     "suggestionStreet": "Street",
     "any": "Any",
     "min": "Min",
-    "max": "Max"
+    "max": "Max",
+    "keywords": "Keywords",
+    "keywordsPlaceholder": "e.g. sea view, private pool, garage",
+    "keywordsHint": "Search within listing details and AI-generated tags"
   },
   "listing": {
     "rooms": "{count} bed",

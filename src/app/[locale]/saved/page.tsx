@@ -41,7 +41,7 @@ export default async function SavedPage({
       {saved.length === 0 ? (
         <p className="mt-6 text-pisome-muted">
           {t("saved.empty")}{" "}
-          <Link href="/search" className="text-pisome-blue underline">
+          <Link href="/search" className="text-pisome-blue-dark underline">
             {t("nav.search")}
           </Link>
         </p>
