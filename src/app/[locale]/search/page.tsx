@@ -1,4 +1,5 @@
 import { SearchExperience } from "@/components/search/search-experience";
+import { parseDrawnArea } from "@/lib/geo";
 import {
   getFilterCatalog,
   searchListings,
@@ -74,6 +75,7 @@ export default async function SearchPage({
         : legacyType
           ? [legacyType]
           : undefined,
+      keywords: get("keywords")?.split("|").map((k) => k.trim()).filter(Boolean),
       energyCert: get("energyCert"),
       hasParking: get("hasParking") === "1",
       hasElevator: get("hasElevator") === "1",
@@ -89,6 +91,7 @@ export default async function SearchPage({
     <SearchExperience
       listings={listings}
       catalog={catalog}
+      initialDrawnArea={parseDrawnArea(get("area"))}
       initialFilters={{
         q: get("q"),
         locations: get("locations"),
@@ -105,6 +108,7 @@ export default async function SearchPage({
         maxAreaM2: get("maxAreaM2"),
         propertyTypes: get("propertyTypes"),
         propertyType: get("propertyType"),
+        keywords: get("keywords"),
         energyCert: get("energyCert"),
         sort: get("sort"),
         hasParking: get("hasParking"),

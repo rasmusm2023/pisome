@@ -8,6 +8,8 @@ import {
   SearchFiltersPanel,
 } from "@/components/search/search-filters-panel";
 import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
+import { isPointInPolygon, parseDrawnArea, type LngLatPair } from "@/lib/geo";
+import { withDrawnAreaParam } from "@/lib/saved-search";
 import { Button } from "@/components/ui/button";
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
@@ -165,10 +167,12 @@ export function SearchExperience({
   listings,
   catalog,
   initialFilters,
+  initialDrawnArea = null,
 }: {
   listings: ListingResult[];
   catalog: FilterCatalogItem[];
   initialFilters: Record<string, string | undefined>;
+  initialDrawnArea?: LngLatPair[] | null;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -182,6 +186,9 @@ export function SearchExperience({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [drawnArea, setDrawnArea] = useState<LngLatPair[] | null>(
+    () => initialDrawnArea ?? null,
+  );
   const [mainQuery, setMainQuery] = useState("");
   const [locations, setLocations] = useState(() =>
     locationsFromFilters(initialFilters),
@@ -197,12 +204,17 @@ export function SearchExperience({
     rememberSearchPath(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, searchParams]);
 
+  useEffect(() => {
+    setDrawnArea(parseDrawnArea(searchParams.get("area")));
+  }, [searchParams]);
+
   const filtersActive = useMemo(
     () => hasAppliedFilters(initialFilters),
     [initialFilters],
   );
 
-  const canSaveSearch = filtersActive;
+  const hasDrawnArea = Boolean(drawnArea && drawnArea.length >= 3);
+  const canSaveSearch = filtersActive || hasDrawnArea;
 
   const listingKey = listings.map((l) => l.id).join(",");
   useEffect(() => {
@@ -240,9 +252,22 @@ export function SearchExperience({
   );
 
   const visibleListings = useMemo(() => {
-    if (view === "list" || !mapBounds) return listings;
+    if (view === "list") return listings;
+    if (drawnArea && drawnArea.length >= 3) {
+      return listings.filter((listing) => isPointInPolygon(listing, drawnArea));
+    }
+    if (!mapBounds) return listings;
     return listings.filter((listing) => isListingInBounds(listing, mapBounds));
-  }, [listings, mapBounds, view]);
+  }, [listings, mapBounds, view, drawnArea]);
+
+  const mapListingsForArea = useMemo(() => {
+    if (drawnArea && drawnArea.length >= 3) {
+      return mapListings.filter((listing) =>
+        isPointInPolygon(listing, drawnArea),
+      );
+    }
+    return mapListings;
+  }, [mapListings, drawnArea]);
 
   useEffect(() => {
     if (!selectedSlug) return;
@@ -251,10 +276,26 @@ export function SearchExperience({
     }
   }, [visibleListings, selectedSlug]);
 
-  function navigateSearch(params: URLSearchParams) {
+  function navigateSearch(
+    params: URLSearchParams,
+    area: LngLatPair[] | null = drawnArea,
+  ) {
     startTransition(() => {
-      const qs = params.toString();
+      const next = withDrawnAreaParam(params, area);
+      const qs = next.toString();
       router.push(qs ? `/search?${qs}` : "/search");
+    });
+  }
+
+  function applyDrawnArea(polygon: LngLatPair[] | null) {
+    setDrawnArea(polygon);
+    const next = withDrawnAreaParam(
+      new URLSearchParams(searchParams.toString()),
+      polygon,
+    );
+    startTransition(() => {
+      const qs = next.toString();
+      router.replace(qs ? `/search?${qs}` : "/search");
     });
   }
 
@@ -298,6 +339,8 @@ export function SearchExperience({
 
   async function saveSearch() {
     if (!canSaveSearch) return;
+    const area =
+      drawnArea && drawnArea.length >= 3 ? drawnArea : undefined;
     const res = await fetch("/api/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -306,7 +349,7 @@ export function SearchExperience({
           locations[0] ||
           initialFilters.q ||
           initialFilters.city ||
-          t("search.saveSearchDefault"),
+          (area ? t("search.mapArea") : t("search.saveSearchDefault")),
         city: initialFilters.city || locations[0],
         minPrice: initialFilters.minPrice
           ? Number(initialFilters.minPrice)
@@ -318,6 +361,7 @@ export function SearchExperience({
           ? Number(initialFilters.minRooms)
           : undefined,
         propertyType: initialFilters.propertyType,
+        drawnArea: area,
       }),
     });
     if (res.status === 401) {
@@ -343,13 +387,13 @@ export function SearchExperience({
   );
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden">
       <div
         className={cn(
-          "pisome-search-layout grid",
+          "pisome-search-layout grid h-full min-h-0",
           view === "map"
             ? "grid-cols-1 gap-0 lg:grid-cols-[0fr_minmax(0,1fr)]"
-            : "grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
+            : "grid-cols-1 grid-rows-[minmax(0,42%)_minmax(0,1fr)] gap-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-none",
         )}
       >
         <div
@@ -361,7 +405,7 @@ export function SearchExperience({
         >
           <div
             className={cn(
-              "relative flex min-w-0 flex-col gap-3 lg:sticky lg:top-20 lg:h-[calc(100vh-11rem)]",
+              "relative flex h-full min-w-0 flex-col gap-3 overflow-hidden px-4 py-4 sm:px-6 lg:px-8 lg:pr-4",
               // Preserve width while the desktop grid column collapses.
               view === "map" ? "lg:w-[min(100%,24rem)]" : "w-full",
             )}
@@ -372,6 +416,17 @@ export function SearchExperience({
               <LocationSearchInput
                 value={mainQuery}
                 tags={locations}
+                extraTags={
+                  drawnArea && drawnArea.length >= 3
+                    ? [
+                        {
+                          key: "draw-area",
+                          label: t("search.mapArea"),
+                          onRemove: () => applyDrawnArea(null),
+                        },
+                      ]
+                    : undefined
+                }
                 catalog={catalog}
                 lang={locale}
                 placeholder={t("search.placeholder")}
@@ -459,33 +514,21 @@ export function SearchExperience({
               onClose={() => setFiltersOpen(false)}
               onApply={(params) => {
                 setFiltersOpen(false);
-                // Keep multi-location tags unless the panel set its own location.
-                if (!params.get("q") && locations.length) {
-                  params.set("locations", locations.join("|"));
-                } else {
-                  params.delete("locations");
-                }
                 navigateSearch(params);
               }}
               onClear={() => {
                 setFiltersOpen(false);
                 setLocations([]);
-                navigateSearch(new URLSearchParams());
+                setDrawnArea(null);
+                navigateSearch(new URLSearchParams(), null);
               }}
             />
           </div>
         </div>
 
-        <div
-          className={cn(
-            "relative flex min-w-0 flex-col gap-3 transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            view === "map"
-              ? "h-[calc(100vh-8rem)]"
-              : "h-[calc(100vh-11rem)] lg:sticky lg:top-20",
-          )}
-        >
+        <div className="relative flex h-full min-h-0 min-w-0 flex-col">
           {view === "map" && (
-            <div className="pointer-events-none absolute left-3 top-3 z-20 sm:left-4 sm:top-4">
+            <div className="pointer-events-none absolute left-3 top-3 z-30 sm:left-4 sm:top-4">
               <div className="pointer-events-auto animate-[fade-up_0.35s_ease-out]">
                 <ViewToggle
                   view={view}
@@ -508,7 +551,7 @@ export function SearchExperience({
               aria-hidden={view === "list"}
             >
               <SearchMap
-                listings={mapListings}
+                listings={mapListingsForArea}
                 locale={locale}
                 selectedLocations={locations}
                 selectedId={
@@ -527,12 +570,19 @@ export function SearchExperience({
                 onBoundsChange={(bounds) => {
                   startTransition(() => setMapBounds(bounds));
                 }}
+                onDrawnAreaChange={applyDrawnArea}
+                savedArea={drawnArea}
+                toolbarClassName={
+                  view === "map"
+                    ? "left-3 top-14 sm:left-4 sm:top-16"
+                    : "left-3 top-3 sm:left-4 sm:top-4"
+                }
               />
             </div>
 
             <div
               className={cn(
-                "pisome-scroll-hidden absolute inset-0 overflow-y-auto overflow-x-hidden px-1.5 py-1",
+                "pisome-scroll-hidden absolute inset-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 lg:px-8",
                 view === "list"
                   ? "z-10 translate-y-0 opacity-100"
                   : "pointer-events-none z-0 translate-y-1 opacity-0",

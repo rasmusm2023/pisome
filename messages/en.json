@@ -54,6 +54,8 @@
     "area": "Size",
     "type": "Type",
     "features": "Features",
+    "showMoreFeatures": "Show more",
+    "showLessFeatures": "Show less",
     "energy": "Energy certificate",
     "newBuild": "New build",
     "parking": "Parking",
@@ -65,6 +67,14 @@
     "noResultsInMap": "No homes listed in this area",
     "map": "Map",
     "list": "List",
+    "drawArea": "Draw area",
+    "mapArea": "Map area",
+    "resetDrawArea": "Reset draw area",
+    "saveDrawArea": "Save draw area",
+    "removeDrawArea": "Remove draw area",
+    "drawAreaHint": "Click to add points · Drag points to move · Click the first point to close",
+    "drawVertexDrag": "Drag to move",
+    "drawVertexClose": "Click to close, or drag to move",
     "sortFeatured": "Featured",
     "sortNewest": "Newest",
     "sortOldest": "Oldest",
@@ -79,7 +89,10 @@
     "suggestionStreet": "Street",
     "any": "Any",
     "min": "Min",
-    "max": "Max"
+    "max": "Max",
+    "keywords": "Keywords",
+    "keywordsPlaceholder": "e.g. sea view, private pool, garage",
+    "keywordsHint": "Search within listing details and AI-generated tags"
   },
   "listing": {
     "rooms": "{count} bed",
@@ -121,7 +134,8 @@
     "title": "Saved",
     "empty": "You haven't saved any homes yet.",
     "alerts": "Search alerts",
-    "alertsEmpty": "Create an alert from search to get notified instantly."
+    "alertsEmpty": "Create an alert from search to get notified instantly.",
+    "openSearch": "Open this search"
   },
   "auth": {
     "title": "Sign in to Pisome",

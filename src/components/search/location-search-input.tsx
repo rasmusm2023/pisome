@@ -2,7 +2,7 @@
 
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
-import { MapPin, X } from "lucide-react";
+import { MapPin, Pentagon, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type LocationSuggestion = {
@@ -110,6 +110,7 @@ export function LocationSearchInput({
   tags,
   onAddTag,
   onRemoveTag,
+  extraTags,
 }: {
   id?: string;
   value: string;
@@ -126,6 +127,7 @@ export function LocationSearchInput({
   tags?: string[];
   onAddTag?: (tag: string) => void;
   onRemoveTag?: (tag: string) => void;
+  extraTags?: { key: string; label: string; onRemove: () => void }[];
 }) {
   const multi = tags != null;
   const [open, setOpen] = useState(false);
@@ -147,16 +149,10 @@ export function LocationSearchInput({
     [local, remote],
   );
 
+  // Auto-select the first suggestion whenever the list changes so Enter commits immediately.
   useEffect(() => {
-    setActiveIndex(-1);
-  }, [value]);
-
-  useEffect(() => {
-    if (activeIndex < 0) return;
-    if (activeIndex >= suggestions.length) {
-      setActiveIndex(suggestions.length > 0 ? suggestions.length - 1 : -1);
-    }
-  }, [activeIndex, suggestions.length]);
+    setActiveIndex(suggestions.length > 0 && open ? 0 : -1);
+  }, [suggestions.length, open]);
 
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return;
@@ -300,7 +296,8 @@ export function LocationSearchInput({
     }
   }
 
-  const showPlaceholder = !multi || (tags?.length ?? 0) === 0;
+  const showPlaceholder =
+    !multi || ((tags?.length ?? 0) === 0 && (extraTags?.length ?? 0) === 0);
   const listboxId = id ? `${id}-suggestions` : "location-suggestions";
   const activeOptionId =
     activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
@@ -311,6 +308,26 @@ export function LocationSearchInput({
         className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-pisome-border bg-white px-2.5 py-1.5 transition focus-within:border-pisome-blue focus-within:ring-2 focus-within:ring-pisome-blue/15"
         onClick={() => inputRef.current?.focus()}
       >
+        {extraTags?.map((tag) => (
+          <span
+            key={tag.key}
+            className="inline-flex max-w-full items-center gap-1 rounded-lg bg-pisome-blue px-2 py-1 text-xs font-semibold text-white"
+          >
+            <button
+              type="button"
+              className="rounded p-0.5 text-white/80 transition hover:bg-white/15 hover:text-white"
+              aria-label={`Remove ${tag.label}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                tag.onRemove();
+              }}
+            >
+              <X className="h-3 w-3" strokeWidth={2.5} />
+            </button>
+            <Pentagon className="h-3 w-3" aria-hidden />
+            <span className="truncate">{tag.label}</span>
+          </span>
+        ))}
         {multi &&
           tags?.map((tag) => (
             <span

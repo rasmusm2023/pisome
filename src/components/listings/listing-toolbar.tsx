@@ -68,7 +68,7 @@ export function ListingToolbar({
           <li>
             <Link
               href={searchHref}
-              className="font-medium text-pisome-blue transition hover:text-pisome-blue-dark"
+              className="font-medium text-pisome-blue-dark transition hover:text-pisome-navy"
             >
               {t("listing.breadcrumbSearch")}
             </Link>

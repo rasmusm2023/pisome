@@ -118,7 +118,7 @@ export default async function AgentDashboard({
                     {listing.status === "LIVE" && (
                       <Link
                         href={`/listings/${listing.slug}`}
-                        className="text-pisome-blue hover:underline"
+                        className="text-pisome-blue-dark hover:underline"
                       >
                         View
                       </Link>

@@ -8,20 +8,27 @@ import {
   countCatalogMatches,
   type FilterCatalogItem,
 } from "@/lib/filter-catalog";
+import { suggestKeywords } from "@/lib/keyword-catalog";
 import { cn, formatPrice } from "@/lib/utils";
 import {
   ArrowRight,
+  ArrowUpDown,
   Building2,
+  CircleParking,
   DoorOpen,
   Home,
   Landmark,
   Layers,
+  Search,
+  Sparkles,
+  Sun,
   TreePine,
+  Waves,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const PROPERTY_TYPE_OPTIONS: {
   type: string;
@@ -34,6 +41,20 @@ const PROPERTY_TYPE_OPTIONS: {
   { type: "STUDIO", icon: DoorOpen },
   { type: "TOWNHOUSE", icon: Landmark },
 ];
+
+const FEATURE_OPTIONS: {
+  key: "hasParking" | "hasElevator" | "hasTerrace" | "hasPool" | "isNewBuild";
+  labelKey: "parking" | "elevator" | "terrace" | "pool" | "newBuild";
+  icon: LucideIcon;
+}[] = [
+  { key: "hasParking", labelKey: "parking", icon: CircleParking },
+  { key: "hasElevator", labelKey: "elevator", icon: ArrowUpDown },
+  { key: "hasTerrace", labelKey: "terrace", icon: Sun },
+  { key: "hasPool", labelKey: "pool", icon: Waves },
+  { key: "isNewBuild", labelKey: "newBuild", icon: Sparkles },
+];
+
+const FEATURES_VISIBLE_INITIAL = 3;
 
 export const FILTER_BOUNDS = {
   price: { min: 0, max: 5_000_000, step: 25_000 },
@@ -59,6 +80,8 @@ function toggleValue(values: string[], value: string) {
 export type DraftFilters = {
   q: string;
   city: string;
+  locations: string[];
+  keywords: string[];
   minPrice: number;
   maxPrice: number;
   minPricePerM2: number;
@@ -92,9 +115,20 @@ export function filtersFromInitial(
     propertyTypes.push(initial.propertyType);
   }
 
+  const locations = initial.locations
+    ? initial.locations.split("|").map((v) => v.trim()).filter(Boolean)
+    : initial.q
+      ? [initial.q.trim()].filter(Boolean)
+      : [];
+  const keywords = initial.keywords
+    ? initial.keywords.split("|").map((v) => v.trim()).filter(Boolean)
+    : [];
+
   return {
-    q: initial.q ?? "",
+    q: "",
     city: initial.city ?? "",
+    locations,
+    keywords,
     minPrice: initial.minPrice
       ? Number(initial.minPrice)
       : FILTER_BOUNDS.price.min,
@@ -128,8 +162,9 @@ export function filtersFromInitial(
 
 export function draftToSearchParams(draft: DraftFilters): URLSearchParams {
   const params = new URLSearchParams();
-  if (draft.q.trim()) params.set("q", draft.q.trim());
+  if (draft.locations.length) params.set("locations", draft.locations.join("|"));
   if (draft.city) params.set("city", draft.city);
+  if (draft.keywords.length) params.set("keywords", draft.keywords.join("|"));
   if (draft.minPrice > FILTER_BOUNDS.price.min) {
     params.set("minPrice", String(draft.minPrice));
   }
@@ -173,14 +208,218 @@ export function hasAppliedFilters(
   });
 }
 
-function Chip({
+function KeywordTagInput({
+  id,
+  tags,
+  placeholder,
+  lang = "es",
+  onAdd,
+  onRemove,
+}: {
+  id?: string;
+  tags: string[];
+  placeholder: string;
+  lang?: string;
+  onAdd: (tag: string) => void;
+  onRemove: (tag: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const blurTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const suggestions = useMemo(
+    () => suggestKeywords(value, lang, tags),
+    [value, lang, tags],
+  );
+
+  useEffect(() => {
+    setActiveIndex(suggestions.length > 0 && open ? 0 : -1);
+  }, [suggestions.length, open]);
+
+  useEffect(() => {
+    if (activeIndex < 0 || !listRef.current) return;
+    const el = listRef.current.querySelector<HTMLElement>(
+      `[data-suggestion-index="${activeIndex}"]`,
+    );
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  function clearBlurTimer() {
+    if (blurTimer.current != null) {
+      window.clearTimeout(blurTimer.current);
+      blurTimer.current = null;
+    }
+  }
+
+  function commit(tag: string) {
+    const next = tag.trim();
+    if (!next) return;
+    onAdd(next);
+    setValue("");
+    setOpen(false);
+    setActiveIndex(-1);
+  }
+
+  function commitSuggestion(suggestion: { value: string; label: string }) {
+    clearBlurTimer();
+    commit(suggestion.label);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    const hasSuggestions = suggestions.length > 0;
+
+    if (e.key === "ArrowDown") {
+      if (!hasSuggestions) return;
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((prev) => {
+        if (prev < 0) return 0;
+        return Math.min(prev + 1, suggestions.length - 1);
+      });
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      if (!hasSuggestions) return;
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((prev) => {
+        if (prev <= 0) return -1;
+        return prev - 1;
+      });
+      return;
+    }
+
+    if (e.key === "Escape") {
+      if (!open && activeIndex < 0) return;
+      e.preventDefault();
+      setOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIndex >= 0 && suggestions[activeIndex]) {
+        commitSuggestion(suggestions[activeIndex]);
+        return;
+      }
+      if (value.trim()) commit(value);
+      return;
+    }
+
+    if (e.key === "Backspace" && !value && tags.length > 0) {
+      onRemove(tags[tags.length - 1]);
+    }
+  }
+
+  const listboxId = id ? `${id}-suggestions` : "keyword-suggestions";
+
+  return (
+    <div className="relative">
+      <div
+        className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-pisome-border bg-white px-3 py-2 focus-within:border-pisome-blue focus-within:ring-2 focus-within:ring-pisome-blue/20"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="flex items-center gap-1 rounded-lg bg-pisome-alice px-2 py-0.5 text-sm font-medium text-pisome-blue-dark"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(tag);
+              }}
+              className="ml-0.5 rounded text-pisome-blue/60 hover:text-pisome-blue-dark"
+              aria-label={`Remove ${tag}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          id={id}
+          type="text"
+          role="combobox"
+          aria-expanded={open && suggestions.length > 0}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+          }
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            blurTimer.current = window.setTimeout(() => {
+              setOpen(false);
+              setActiveIndex(-1);
+            }, 120);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={tags.length === 0 ? placeholder : ""}
+          className="min-w-28 flex-1 bg-transparent text-sm text-pisome-navy placeholder:text-pisome-muted/60 outline-none"
+        />
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <ul
+          ref={listRef}
+          id={listboxId}
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-64 overflow-auto rounded-xl border border-pisome-border bg-white shadow-lg shadow-pisome-navy/10"
+          role="listbox"
+        >
+          {suggestions.map((suggestion, index) => (
+            <li
+              key={suggestion.value}
+              id={`${listboxId}-option-${index}`}
+              role="option"
+              aria-selected={index === activeIndex}
+              data-suggestion-index={index}
+            >
+              <button
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-pisome-navy transition",
+                  index === activeIndex
+                    ? "bg-pisome-alice"
+                    : "hover:bg-pisome-alice",
+                )}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => commitSuggestion(suggestion)}
+              >
+                <Search className="h-4 w-4 shrink-0 text-pisome-blue" />
+                <span className="truncate">{suggestion.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FilterTile({
   active,
   onClick,
   children,
+  icon: Icon,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  icon?: LucideIcon;
 }) {
   return (
     <button
@@ -188,13 +427,30 @@ function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-xl border px-3 py-2 text-sm font-medium transition",
+        "flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-2 text-center transition",
         active
-          ? "border-pisome-blue bg-pisome-alice text-pisome-blue-dark"
-          : "border-pisome-border bg-white text-pisome-navy hover:border-pisome-blue/40",
+          ? "border-pisome-blue bg-pisome-blue text-white shadow-sm shadow-pisome-blue/25"
+          : "border-pisome-border bg-white text-pisome-navy hover:border-pisome-blue/45 hover:bg-pisome-alice",
       )}
     >
-      {children}
+      {Icon ? (
+        <Icon
+          className={cn(
+            "h-5 w-5 shrink-0",
+            active ? "text-white" : "text-pisome-blue",
+          )}
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      ) : null}
+      <span
+        className={cn(
+          "font-semibold leading-tight",
+          Icon ? "text-xs" : "text-sm",
+        )}
+      >
+        {children}
+      </span>
     </button>
   );
 }
@@ -221,14 +477,21 @@ export function SearchFiltersPanel({
   const t = useTranslations();
   const numberLocale = locale === "en" ? "en-GB" : "es-ES";
   const [draft, setDraft] = useState(() => filtersFromInitial(initialFilters));
+  const [featuresExpanded, setFeaturesExpanded] = useState(false);
 
   useEffect(() => {
-    if (open) setDraft(filtersFromInitial(initialFilters));
+    if (!open) return;
+    const next = filtersFromInitial(initialFilters);
+    setDraft(next);
+    const hasHiddenSelection = FEATURE_OPTIONS.slice(FEATURES_VISIBLE_INITIAL).some(
+      ({ key }) => next[key],
+    );
+    setFeaturesExpanded(hasHiddenSelection);
   }, [open, initialFilters]);
 
   const previewCount = useMemo(() => {
     return countCatalogMatches(catalog, {
-      q: draft.q || undefined,
+      locations: draft.locations.length ? draft.locations : undefined,
       city: draft.city || undefined,
       minPrice:
         draft.minPrice > FILTER_BOUNDS.price.min ? draft.minPrice : undefined,
@@ -265,14 +528,14 @@ export function SearchFiltersPanel({
   return (
     <div
       className={cn(
-        "absolute inset-0 z-20 flex flex-col overflow-hidden rounded-2xl border border-pisome-border bg-white shadow-xl shadow-pisome-navy/10 transition-transform duration-300 ease-out",
+        "absolute inset-0 z-20 flex flex-col overflow-hidden border border-pisome-border bg-white shadow-xl shadow-pisome-navy/10 transition-transform duration-300 ease-out",
         open
           ? "translate-x-0"
           : "pointer-events-none -translate-x-[calc(100%+1rem)]",
       )}
       aria-hidden={!open}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-pisome-border px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-pisome-border px-8 py-3">
         <h2 className="font-display text-lg font-semibold text-pisome-navy">
           {t("search.searchFilters")}
         </h2>
@@ -287,7 +550,7 @@ export function SearchFiltersPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+        <div className="flex-1 space-y-5 overflow-y-auto px-8 py-4">
           <div className="space-y-1.5">
             <label
               htmlFor="filter-q"
@@ -304,21 +567,53 @@ export function SearchFiltersPanel({
               cityLabel={t("search.suggestionCity")}
               neighborhoodLabel={t("search.suggestionNeighborhood")}
               streetLabel={t("search.suggestionStreet")}
-              onChange={(q) => patch({ q, city: "" })}
-              onSelectSuggestion={(suggestion) => {
-                if (suggestion.kind === "city") {
-                  patch({
-                    q: suggestion.value,
-                    city: suggestion.city ?? suggestion.value,
-                  });
-                } else {
-                  patch({
-                    q: suggestion.value,
-                    city: suggestion.city ?? "",
-                  });
-                }
+              onChange={(q) => patch({ q })}
+              tags={draft.locations}
+              onAddTag={(tag) => {
+                const exists = draft.locations.some(
+                  (l) => l.toLowerCase() === tag.toLowerCase(),
+                );
+                if (exists) return;
+                patch({ q: "", locations: [...draft.locations, tag] });
+              }}
+              onRemoveTag={(tag) => {
+                patch({
+                  locations: draft.locations.filter(
+                    (l) => l.toLowerCase() !== tag.toLowerCase(),
+                  ),
+                });
               }}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="filter-keywords"
+              className="text-xs font-semibold uppercase tracking-wide text-pisome-muted"
+            >
+              {t("search.keywords")}
+            </label>
+            <KeywordTagInput
+              id="filter-keywords"
+              tags={draft.keywords}
+              lang={locale}
+              placeholder={t("search.keywordsPlaceholder")}
+              onAdd={(kw) => {
+                const exists = draft.keywords.some(
+                  (k) => k.toLowerCase() === kw.toLowerCase(),
+                );
+                if (exists) return;
+                patch({ keywords: [...draft.keywords, kw] });
+              }}
+              onRemove={(kw) => {
+                patch({
+                  keywords: draft.keywords.filter(
+                    (k) => k.toLowerCase() !== kw.toLowerCase(),
+                  ),
+                });
+              }}
+            />
+            <p className="text-xs text-pisome-muted">{t("search.keywordsHint")}</p>
           </div>
 
           <RangeSlider
@@ -373,18 +668,18 @@ export function SearchFiltersPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-pisome-muted">
               {t("search.rooms")}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Chip active={!draft.rooms.length} onClick={() => patch({ rooms: [] })}>
+            <div className="grid grid-cols-5 gap-2">
+              <FilterTile active={!draft.rooms.length} onClick={() => patch({ rooms: [] })}>
                 {t("search.any")}
-              </Chip>
+              </FilterTile>
               {["1", "2", "3", "4"].map((n) => (
-                <Chip
+                <FilterTile
                   key={n}
                   active={draft.rooms.includes(n)}
                   onClick={() => patch({ rooms: toggleValue(draft.rooms, n) })}
                 >
                   {n === "4" ? "4+" : n}
-                </Chip>
+                </FilterTile>
               ))}
             </div>
           </div>
@@ -393,15 +688,15 @@ export function SearchFiltersPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-pisome-muted">
               {t("search.bathrooms")}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Chip
+            <div className="grid grid-cols-4 gap-2">
+              <FilterTile
                 active={!draft.bathrooms.length}
                 onClick={() => patch({ bathrooms: [] })}
               >
                 {t("search.any")}
-              </Chip>
+              </FilterTile>
               {["1", "2", "3"].map((n) => (
-                <Chip
+                <FilterTile
                   key={n}
                   active={draft.bathrooms.includes(n)}
                   onClick={() =>
@@ -409,7 +704,7 @@ export function SearchFiltersPanel({
                   }
                 >
                   {n === "3" ? "3+" : n}
-                </Chip>
+                </FilterTile>
               ))}
             </div>
           </div>
@@ -432,7 +727,7 @@ export function SearchFiltersPanel({
                       })
                     }
                     className={cn(
-                      "flex min-h-[5.25rem] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition",
+                      "flex min-h-21 flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition",
                       active
                         ? "border-pisome-blue bg-pisome-blue text-white shadow-sm shadow-pisome-blue/25"
                         : "border-pisome-border bg-white text-pisome-navy hover:border-pisome-blue/45 hover:bg-pisome-alice",
@@ -459,30 +754,32 @@ export function SearchFiltersPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-pisome-muted">
               {t("search.features")}
             </p>
-            <div className="space-y-2.5">
-              {(
-                [
-                  ["hasParking", "parking"],
-                  ["hasElevator", "elevator"],
-                  ["hasTerrace", "terrace"],
-                  ["hasPool", "pool"],
-                  ["isNewBuild", "newBuild"],
-                ] as const
-              ).map(([key, labelKey]) => (
-                <label
+            <div className="grid grid-cols-3 gap-2">
+              {(featuresExpanded
+                ? FEATURE_OPTIONS
+                : FEATURE_OPTIONS.slice(0, FEATURES_VISIBLE_INITIAL)
+              ).map(({ key, labelKey, icon }) => (
+                <FilterTile
                   key={key}
-                  className="flex items-center gap-2.5 text-sm text-pisome-navy"
+                  icon={icon}
+                  active={draft[key]}
+                  onClick={() => patch({ [key]: !draft[key] })}
                 >
-                  <input
-                    type="checkbox"
-                    checked={draft[key]}
-                    onChange={(e) => patch({ [key]: e.target.checked })}
-                    className="h-4 w-4 accent-pisome-blue"
-                  />
                   {t(`search.${labelKey}`)}
-                </label>
+                </FilterTile>
               ))}
             </div>
+            {FEATURE_OPTIONS.length > FEATURES_VISIBLE_INITIAL && (
+              <button
+                type="button"
+                onClick={() => setFeaturesExpanded((v) => !v)}
+                className="text-sm font-semibold text-pisome-blue transition hover:text-pisome-blue-dark"
+              >
+                {featuresExpanded
+                  ? t("search.showLessFeatures")
+                  : t("search.showMoreFeatures")}
+              </button>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -531,7 +828,7 @@ export function SearchFiltersPanel({
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2 border-t border-pisome-border p-4">
+        <div className="flex shrink-0 gap-2 border-t border-pisome-border px-8 py-4">
           {hasActiveFilters && (
             <Button
               type="button"

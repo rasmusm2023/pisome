@@ -79,6 +79,8 @@ model Listing {
   hasTerrace     Boolean        @default(false)
   hasPool        Boolean        @default(false)
   isNewBuild     Boolean        @default(false)
+  /// JSON array of AI / listing keyword tags, e.g. ["sea view","private pool"]
+  tags           String         @default("[]")
   address        String
   neighborhood   String
   city           String
@@ -147,6 +149,8 @@ model SavedSearch {
   minRooms    Int?
   minAreaM2   Int?
   propertyType String?
+  /// Closed `[lng, lat]` ring, encoded like the search `area` query param.
+  drawnArea   String?
   alertsOn    Boolean   @default(true)
   lastAlertAt DateTime?
   createdAt   DateTime  @default(now())

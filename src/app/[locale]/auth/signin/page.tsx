@@ -63,7 +63,7 @@ export default function SignInPage() {
         {t("needAccount")}{" "}
         <Link
           href="/auth/signup"
-          className="font-medium text-pisome-blue hover:text-pisome-blue-dark"
+          className="font-medium text-pisome-blue-dark hover:text-pisome-navy"
         >
           {tNav("signUp")}
         </Link>

@@ -133,7 +133,7 @@ export function SiteHeader() {
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="rounded-lg px-3 py-3 text-sm font-semibold text-pisome-blue"
+                  className="rounded-lg px-3 py-3 text-sm font-semibold text-pisome-blue-dark"
                   onClick={() => setOpen(false)}
                 >
                   {t("nav.signUp")}

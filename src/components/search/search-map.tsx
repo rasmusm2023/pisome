@@ -1,12 +1,22 @@
 "use client";
 
+import { DrawAreaControls } from "@/components/search/draw-area-controls";
+import {
+  VERTEX_DRAG_PX,
+  ensureDrawLayers,
+  isCloseToOrigin,
+  setDrawCursor,
+  setDrawData,
+  vertexIndexAtPointer,
+} from "@/components/search/map-draw";
+import type { LngLatPair } from "@/lib/geo";
 import { PISOME_MAP_STYLE_URL } from "@/lib/map-style";
 import { formatPrice } from "@/lib/utils";
 import maplibregl, {
   type Map as MapLibreMap,
   type Marker,
 } from "maplibre-gl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Supercluster from "supercluster";
 
 const AREAS_SOURCE_ID = "pisome-selected-areas";
@@ -490,6 +500,9 @@ export function SearchMap({
   onSelect,
   onOpenListing,
   onBoundsChange,
+  onDrawnAreaChange,
+  savedArea = null,
+  toolbarClassName,
   selectedId,
   hoveredId,
   selectedLocations = [],
@@ -499,6 +512,9 @@ export function SearchMap({
   onSelect?: (slug: string | null) => void;
   onOpenListing?: (slug: string) => void;
   onBoundsChange?: (bounds: MapBounds) => void;
+  onDrawnAreaChange?: (polygon: LngLatPair[] | null) => void;
+  savedArea?: LngLatPair[] | null;
+  toolbarClassName?: string;
   selectedId?: string | null;
   hoveredId?: string | null;
   selectedLocations?: string[];
@@ -514,6 +530,7 @@ export function SearchMap({
   const onSelectRef = useRef(onSelect);
   const onOpenListingRef = useRef(onOpenListing);
   const onBoundsChangeRef = useRef(onBoundsChange);
+  const onDrawnAreaChangeRef = useRef(onDrawnAreaChange);
   const selectedIdRef = useRef(selectedId);
   const prevSelectedIdRef = useRef(selectedId);
   const prevHoveredIdRef = useRef(hoveredId);
@@ -522,13 +539,82 @@ export function SearchMap({
   const refreshMarkersRef = useRef<(opts?: { animate?: boolean }) => void>(
     () => {},
   );
+  const [drawing, setDrawing] = useState(false);
+  const [drawVertices, setDrawVertices] = useState<LngLatPair[]>(() =>
+    savedArea && savedArea.length >= 3 ? savedArea : [],
+  );
+  const [drawClosed, setDrawClosed] = useState(() =>
+    Boolean(savedArea && savedArea.length >= 3),
+  );
+  const drawingRef = useRef(false);
+  const drawVerticesRef = useRef<LngLatPair[]>([]);
+  const drawClosedRef = useRef(false);
+  const drawCursorRef = useRef<LngLatPair | null>(null);
+  const closeDrawRef = useRef<() => void>(() => {});
+  const addDrawVertexRef = useRef<(point: LngLatPair) => void>(() => {});
+  const moveDrawVertexRef = useRef<
+    (index: number, point: LngLatPair) => void
+  >(() => {});
+  const endMoveDrawVertexRef = useRef<() => void>(() => {});
+  const draggingVertexRef = useRef<number | null>(null);
+  const ignoreNextMapClickRef = useRef(false);
+  const vertexPointerDownRef = useRef<
+    (index: number, event: PointerEvent) => void
+  >(() => {});
+  const hoveredVertexIndexRef = useRef<number | null>(null);
 
   listingsRef.current = listings;
   onSelectRef.current = onSelect;
   onOpenListingRef.current = onOpenListing;
   onBoundsChangeRef.current = onBoundsChange;
+  onDrawnAreaChangeRef.current = onDrawnAreaChange;
   selectedIdRef.current = selectedId;
   localeRef.current = locale;
+  drawingRef.current = drawing;
+  drawClosedRef.current = drawClosed;
+  if (draggingVertexRef.current == null) {
+    drawVerticesRef.current = drawVertices;
+  }
+
+  addDrawVertexRef.current = (point) => {
+    if (drawClosedRef.current) return;
+    setDrawVertices((prev) => [...prev, point]);
+  };
+  closeDrawRef.current = () => {
+    if (drawClosedRef.current || drawVerticesRef.current.length < 3) return;
+    setDrawClosed(true);
+    drawCursorRef.current = null;
+  };
+  moveDrawVertexRef.current = (index, point) => {
+    draggingVertexRef.current = index;
+    const next = drawVerticesRef.current.map((vertex, i) =>
+      i === index ? point : vertex,
+    );
+    drawVerticesRef.current = next;
+    drawCursorRef.current = null;
+    const map = mapRef.current;
+    if (map) {
+      setDrawData(
+        map,
+        next,
+        drawClosedRef.current,
+        null,
+        hoveredVertexIndexRef.current,
+      );
+    }
+  };
+  endMoveDrawVertexRef.current = () => {
+    ignoreNextMapClickRef.current = true;
+    draggingVertexRef.current = null;
+    const next = drawVerticesRef.current.slice();
+    setDrawVertices(next);
+    if (drawClosedRef.current && next.length >= 3) {
+      onDrawnAreaChangeRef.current?.(next);
+    }
+    window.setTimeout(() => {
+      ignoreNextMapClickRef.current = false;
+    }, 0);
+  };
 
   const listingKey = listings.map((l) => l.id).join(",");
   const locationsKey = selectedLocations.join("|");
@@ -716,6 +802,16 @@ export function SearchMap({
     const markReady = () => {
       map.resize();
       ensureAreasLayers(map);
+      ensureDrawLayers(map);
+      setDrawData(
+        map,
+        drawVerticesRef.current,
+        drawClosedRef.current,
+        drawingRef.current && !drawClosedRef.current
+          ? drawCursorRef.current
+          : null,
+        hoveredVertexIndexRef.current,
+      );
       fitToListings(map, listingsRef.current);
       refreshMarkers({ animate: true });
       emitBounds();
@@ -727,6 +823,7 @@ export function SearchMap({
     map.on("styledata", () => {
       if (!map.isStyleLoaded()) return;
       ensureAreasLayers(map);
+      ensureDrawLayers(map);
       const source = map.getSource(AREAS_SOURCE_ID) as
         | maplibregl.GeoJSONSource
         | undefined;
@@ -734,6 +831,15 @@ export function SearchMap({
         type: "FeatureCollection",
         features: areasFeaturesRef.current,
       });
+      setDrawData(
+        map,
+        drawVerticesRef.current,
+        drawClosedRef.current,
+        drawingRef.current && !drawClosedRef.current
+          ? drawCursorRef.current
+          : null,
+        hoveredVertexIndexRef.current,
+      );
     });
 
     map.on("moveend", () => {
@@ -745,7 +851,171 @@ export function SearchMap({
       emitBounds();
     });
 
-    map.on("click", () => {
+    map.on("mousemove", (e) => {
+      if (draggingVertexRef.current != null) return;
+      if (!drawingRef.current || drawClosedRef.current) return;
+      const point: LngLatPair = [e.lngLat.lng, e.lngLat.lat];
+      const snapped = isCloseToOrigin(map, drawVerticesRef.current, point)
+        ? drawVerticesRef.current[0]
+        : point;
+      drawCursorRef.current = snapped;
+      setDrawData(
+        map,
+        drawVerticesRef.current,
+        false,
+        snapped,
+        hoveredVertexIndexRef.current,
+      );
+    });
+
+    const vertexGesture = {
+      active: false,
+      index: 0,
+      startX: 0,
+      startY: 0,
+      moved: false,
+    };
+
+    const setVertexHot = (index: number | null) => {
+      hoveredVertexIndexRef.current = index;
+      const over = index != null;
+      map.getCanvas().classList.toggle("is-over-vertex", over);
+      map.getCanvasContainer().classList.toggle("is-over-vertex", over);
+      if (draggingVertexRef.current != null) return;
+      setDrawData(
+        map,
+        drawVerticesRef.current,
+        drawClosedRef.current,
+        drawingRef.current && !drawClosedRef.current
+          ? drawCursorRef.current
+          : null,
+        index,
+      );
+    };
+
+    vertexPointerDownRef.current = (index, event) => {
+      if (vertexGesture.active) return;
+      vertexGesture.active = true;
+      vertexGesture.index = index;
+      vertexGesture.startX = event.clientX;
+      vertexGesture.startY = event.clientY;
+      vertexGesture.moved = false;
+      ignoreNextMapClickRef.current = true;
+      map.dragPan.disable();
+      setVertexHot(index);
+    };
+
+    const onVertexPointerMove = (event: PointerEvent) => {
+      if (!vertexGesture.active) {
+        setVertexHot(
+          vertexIndexAtPointer(
+            map,
+            drawVerticesRef.current,
+            event.clientX,
+            event.clientY,
+          ),
+        );
+        return;
+      }
+      const dist = Math.hypot(
+        event.clientX - vertexGesture.startX,
+        event.clientY - vertexGesture.startY,
+      );
+      if (!vertexGesture.moved && dist < VERTEX_DRAG_PX) return;
+      vertexGesture.moved = true;
+      draggingVertexRef.current = vertexGesture.index;
+      const rect = map.getCanvas().getBoundingClientRect();
+      const lngLat = map.unproject([
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      ]);
+      moveDrawVertexRef.current(vertexGesture.index, [
+        lngLat.lng,
+        lngLat.lat,
+      ]);
+    };
+
+    const onVertexPointerUp = () => {
+      if (!vertexGesture.active) return;
+      const { index, moved } = vertexGesture;
+      vertexGesture.active = false;
+      map.dragPan.enable();
+      if (moved) {
+        endMoveDrawVertexRef.current();
+        return;
+      }
+      draggingVertexRef.current = null;
+      window.setTimeout(() => {
+        ignoreNextMapClickRef.current = false;
+      }, 0);
+      if (
+        index === 0 &&
+        drawingRef.current &&
+        !drawClosedRef.current &&
+        drawVerticesRef.current.length >= 3
+      ) {
+        closeDrawRef.current();
+      }
+    };
+
+    const onContainerPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-draw-toolbar]")) return;
+      if (target?.closest(".pisome-draw-vertex")) return;
+      const index = vertexIndexAtPointer(
+        map,
+        drawVerticesRef.current,
+        event.clientX,
+        event.clientY,
+      );
+      if (index == null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      vertexPointerDownRef.current(index, event);
+    };
+
+    window.addEventListener("pointermove", onVertexPointerMove);
+    window.addEventListener("pointerup", onVertexPointerUp);
+    window.addEventListener("pointercancel", onVertexPointerUp);
+    map
+      .getContainer()
+      .addEventListener("pointerdown", onContainerPointerDown, true);
+
+    const onMapMouseLeave = () => {
+      if (draggingVertexRef.current != null) return;
+      if (!drawingRef.current || drawClosedRef.current) return;
+      drawCursorRef.current = null;
+      setDrawData(
+        map,
+        drawVerticesRef.current,
+        false,
+        null,
+        hoveredVertexIndexRef.current,
+      );
+    };
+    map.getContainer().addEventListener("mouseleave", onMapMouseLeave);
+
+    map.on("click", (e) => {
+      if (ignoreNextMapClickRef.current || draggingVertexRef.current != null) {
+        return;
+      }
+      const target = e.originalEvent.target as HTMLElement | null;
+      if (target?.closest(".pisome-draw-vertex, [data-draw-toolbar]")) {
+        return;
+      }
+
+      if (drawingRef.current) {
+        if (drawClosedRef.current) return;
+        const point: LngLatPair = [e.lngLat.lng, e.lngLat.lat];
+        if (isCloseToOrigin(map, drawVerticesRef.current, point)) {
+          closeDrawRef.current();
+          return;
+        }
+        addDrawVertexRef.current(point);
+        return;
+      }
+
       // MapLibre only fires click when press+release without a pan/drag
       if (selectedIdRef.current) onSelectRef.current?.(null);
     });
@@ -767,6 +1037,13 @@ export function SearchMap({
         window.clearTimeout(boundsTimerRef.current);
       }
       ro.disconnect();
+      window.removeEventListener("pointermove", onVertexPointerMove);
+      window.removeEventListener("pointerup", onVertexPointerUp);
+      window.removeEventListener("pointercancel", onVertexPointerUp);
+      map
+        .getContainer()
+        .removeEventListener("pointerdown", onContainerPointerDown, true);
+      map.getContainer().removeEventListener("mouseleave", onMapMouseLeave);
       markersByKeyRef.current.forEach((m) => m.remove());
       markersByKeyRef.current.clear();
       map.remove();
@@ -818,6 +1095,8 @@ export function SearchMap({
     if (!map || listings.length === 0) return;
     // When location areas are selected, that effect owns the camera.
     if (selectedLocations.length > 0) return;
+    // Keep the user's drawn area in view after it is saved.
+    if (drawClosedRef.current && drawVerticesRef.current.length >= 3) return;
 
     const run = () => {
       fitToListings(map, listings);
@@ -909,9 +1188,104 @@ export function SearchMap({
     };
   }, [locationsKey, selectedLocations]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => {
+      if (!mapRef.current) return;
+      if (draggingVertexRef.current != null) return;
+      setDrawData(
+        map,
+        drawVertices,
+        drawClosed,
+        drawing && !drawClosed ? drawCursorRef.current : null,
+        hoveredVertexIndexRef.current,
+      );
+      setDrawCursor(map, drawing);
+    };
+
+    if (map.isStyleLoaded()) apply();
+    else map.once("load", apply);
+
+    return () => {
+      map.off("load", apply);
+    };
+  }, [drawing, drawVertices, drawClosed]);
+
+  useEffect(() => {
+    if (!drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawing(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawing]);
+
+  function clearDrawGeometry() {
+    setDrawVertices([]);
+    setDrawClosed(false);
+    drawCursorRef.current = null;
+    const map = mapRef.current;
+    if (map) setDrawData(map, [], false, null, null);
+  }
+
+  const parentHasSavedArea = Boolean(savedArea && savedArea.length >= 3);
+  const prevParentHasSavedAreaRef = useRef(false);
+  const savedAreaKey =
+    savedArea?.map((pair) => pair.join(",")).join("_") ?? "";
+
+  useEffect(() => {
+    if (!savedArea || savedArea.length < 3) return;
+    setDrawVertices(savedArea);
+    setDrawClosed(true);
+    drawVerticesRef.current = savedArea;
+    drawClosedRef.current = true;
+  }, [savedArea, savedAreaKey]);
+
+  useEffect(() => {
+    const wasSaved = prevParentHasSavedAreaRef.current;
+    prevParentHasSavedAreaRef.current = parentHasSavedArea;
+    if (parentHasSavedArea || !wasSaved) return;
+    clearDrawGeometry();
+  }, [parentHasSavedArea]);
+
+  function toggleDrawing() {
+    setDrawing((current) => !current);
+  }
+
+  function resetDrawArea() {
+    clearDrawGeometry();
+    onDrawnAreaChangeRef.current?.(null);
+  }
+
+  function saveDrawArea() {
+    if (drawVertices.length < 3) return;
+    setDrawClosed(true);
+    setDrawing(false);
+    drawCursorRef.current = null;
+    onDrawnAreaChangeRef.current?.(drawVertices);
+  }
+
+  const hasSavedArea = parentHasSavedArea;
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-pisome-border bg-[#f8f4f0]">
-      <div ref={containerRef} className="pisome-map" />
+    <div className="pisome-map-shell relative h-full w-full overflow-hidden bg-[#f8f4f0]">
+      <div
+        ref={containerRef}
+        className={`pisome-map${drawing ? " is-drawing" : ""}`}
+      />
+      <DrawAreaControls
+        drawing={drawing}
+        canSave={drawVertices.length >= 3}
+        canReset={drawVertices.length > 0}
+        hasSavedArea={hasSavedArea}
+        toolbarClassName={toolbarClassName}
+        onToggle={toggleDrawing}
+        onReset={resetDrawArea}
+        onSave={saveDrawArea}
+        onRemove={resetDrawArea}
+      />
     </div>
   );
 }

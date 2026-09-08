@@ -33,6 +33,7 @@ type SeedListing = {
   hasTerrace?: boolean;
   hasPool?: boolean;
   isNewBuild?: boolean;
+  tags?: string[];
   address: string;
   neighborhood: string;
   city: string;
@@ -63,6 +64,7 @@ const listings: SeedListing[] = [
     energyCert: "C",
     hasElevator: true,
     hasTerrace: true,
+    tags: ["rooftop terrace", "natural light", "renovated", "open kitchen", "central location"],
     address: "Calle de Serrano 84",
     neighborhood: "Salamanca",
     city: "Madrid",
@@ -115,6 +117,7 @@ const listings: SeedListing[] = [
     energyCert: "B",
     hasParking: true,
     hasTerrace: true,
+    tags: ["garden", "garage", "quiet area"],
     address: "Calle de Colombia 22",
     neighborhood: "Chamartín",
     city: "Madrid",
@@ -359,6 +362,7 @@ const listings: SeedListing[] = [
     hasPool: true,
     hasTerrace: true,
     isNewBuild: true,
+    tags: ["private pool", "garage", "garden", "new build"],
     address: "Urbanización Les Palmeres 3",
     neighborhood: "Godella",
     city: "Valencia",
@@ -445,6 +449,7 @@ async function main() {
         hasTerrace: item.hasTerrace ?? false,
         hasPool: item.hasPool ?? false,
         isNewBuild: item.isNewBuild ?? false,
+        tags: JSON.stringify(item.tags ?? []),
         address: item.address,
         neighborhood: item.neighborhood,
         city: item.city,
