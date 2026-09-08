@@ -68,6 +68,7 @@
     "map": "Map",
     "list": "List",
     "drawArea": "Draw area",
+    "mapArea": "Map area",
     "resetDrawArea": "Reset draw area",
     "saveDrawArea": "Save draw area",
     "removeDrawArea": "Remove draw area",
@@ -133,7 +134,8 @@
     "title": "Saved",
     "empty": "You haven't saved any homes yet.",
     "alerts": "Search alerts",
-    "alertsEmpty": "Create an alert from search to get notified instantly."
+    "alertsEmpty": "Create an alert from search to get notified instantly.",
+    "openSearch": "Open this search"
   },
   "auth": {
     "title": "Sign in to Pisome",

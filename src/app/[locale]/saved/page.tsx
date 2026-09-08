@@ -1,6 +1,8 @@
 import { ListingCard } from "@/components/listings/listing-card";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseDrawnArea } from "@/lib/geo";
+import { searchHrefFromSavedSearch } from "@/lib/saved-search";
 import { Link } from "@/i18n/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
@@ -61,20 +63,35 @@ export default async function SavedPage({
           <p className="mt-3 text-sm text-pisome-muted">{t("saved.alertsEmpty")}</p>
         ) : (
           <ul className="mt-4 space-y-2">
-            {alerts.map((a) => (
-              <li
-                key={a.id}
-                className="rounded-xl border border-pisome-border bg-white px-4 py-3 text-sm"
-              >
-                <span className="font-medium text-pisome-navy">{a.name}</span>
-                {a.city && (
-                  <span className="text-pisome-muted"> · {a.city}</span>
-                )}
-                {a.alertsOn && (
-                  <span className="ml-2 text-pisome-success">● live</span>
-                )}
-              </li>
-            ))}
+            {alerts.map((a) => {
+              const hasMapArea = Boolean(parseDrawnArea(a.drawnArea));
+              return (
+                <li
+                  key={a.id}
+                  className="rounded-xl border border-pisome-border bg-white px-4 py-3 text-sm"
+                >
+                  <Link
+                    href={searchHrefFromSavedSearch(a)}
+                    className="font-medium text-pisome-navy hover:underline"
+                    title={t("saved.openSearch")}
+                  >
+                    {a.name}
+                  </Link>
+                  {a.city && a.city !== a.name && (
+                    <span className="text-pisome-muted"> · {a.city}</span>
+                  )}
+                  {hasMapArea && a.name !== t("search.mapArea") && (
+                    <span className="text-pisome-muted">
+                      {" "}
+                      · {t("search.mapArea")}
+                    </span>
+                  )}
+                  {a.alertsOn && (
+                    <span className="ml-2 text-pisome-success">● live</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

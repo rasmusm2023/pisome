@@ -149,6 +149,8 @@ model SavedSearch {
   minRooms    Int?
   minAreaM2   Int?
   propertyType String?
+  /// Closed `[lng, lat]` ring, encoded like the search `area` query param.
+  drawnArea   String?
   alertsOn    Boolean   @default(true)
   lastAlertAt DateTime?
   createdAt   DateTime  @default(now())

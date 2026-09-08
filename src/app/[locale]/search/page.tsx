@@ -1,4 +1,5 @@
 import { SearchExperience } from "@/components/search/search-experience";
+import { parseDrawnArea } from "@/lib/geo";
 import {
   getFilterCatalog,
   searchListings,
@@ -90,6 +91,7 @@ export default async function SearchPage({
     <SearchExperience
       listings={listings}
       catalog={catalog}
+      initialDrawnArea={parseDrawnArea(get("area"))}
       initialFilters={{
         q: get("q"),
         locations: get("locations"),

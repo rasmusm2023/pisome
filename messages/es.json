@@ -67,10 +67,11 @@
     "noResultsInMap": "No hay viviendas listadas en esta zona",
     "map": "Mapa",
     "list": "Lista",
-    "drawArea": "Dibujar área",
-    "resetDrawArea": "Restablecer área",
-    "saveDrawArea": "Guardar área",
-    "removeDrawArea": "Quitar área",
+    "drawArea": "Dibujar zona",
+    "mapArea": "Zona del mapa",
+    "resetDrawArea": "Restablecer zona",
+    "saveDrawArea": "Guardar zona",
+    "removeDrawArea": "Quitar zona",
     "drawAreaHint": "Clic para añadir puntos · Arrastra los puntos para moverlos · Clic en el primer punto para cerrar",
     "drawVertexDrag": "Arrastra para mover",
     "drawVertexClose": "Clic para cerrar, o arrastra para mover",
@@ -133,7 +134,8 @@
     "title": "Guardados",
     "empty": "Aún no has guardado ninguna vivienda.",
     "alerts": "Alertas de búsqueda",
-    "alertsEmpty": "Crea una alerta desde la búsqueda para recibir avisos al instante."
+    "alertsEmpty": "Crea una alerta desde la búsqueda para recibir avisos al instante.",
+    "openSearch": "Abrir esta búsqueda"
   },
   "auth": {
     "title": "Entrar en Pisome",

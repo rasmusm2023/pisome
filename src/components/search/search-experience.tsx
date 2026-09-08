@@ -8,7 +8,8 @@ import {
   SearchFiltersPanel,
 } from "@/components/search/search-filters-panel";
 import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
-import { isPointInPolygon, type LngLatPair } from "@/lib/geo";
+import { isPointInPolygon, parseDrawnArea, type LngLatPair } from "@/lib/geo";
+import { withDrawnAreaParam } from "@/lib/saved-search";
 import { Button } from "@/components/ui/button";
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
@@ -166,10 +167,12 @@ export function SearchExperience({
   listings,
   catalog,
   initialFilters,
+  initialDrawnArea = null,
 }: {
   listings: ListingResult[];
   catalog: FilterCatalogItem[];
   initialFilters: Record<string, string | undefined>;
+  initialDrawnArea?: LngLatPair[] | null;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -183,7 +186,9 @@ export function SearchExperience({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
-  const [drawnArea, setDrawnArea] = useState<LngLatPair[] | null>(null);
+  const [drawnArea, setDrawnArea] = useState<LngLatPair[] | null>(
+    () => initialDrawnArea ?? null,
+  );
   const [mainQuery, setMainQuery] = useState("");
   const [locations, setLocations] = useState(() =>
     locationsFromFilters(initialFilters),
@@ -199,12 +204,17 @@ export function SearchExperience({
     rememberSearchPath(qs ? `${pathname}?${qs}` : pathname);
   }, [pathname, searchParams]);
 
+  useEffect(() => {
+    setDrawnArea(parseDrawnArea(searchParams.get("area")));
+  }, [searchParams]);
+
   const filtersActive = useMemo(
     () => hasAppliedFilters(initialFilters),
     [initialFilters],
   );
 
-  const canSaveSearch = filtersActive;
+  const hasDrawnArea = Boolean(drawnArea && drawnArea.length >= 3);
+  const canSaveSearch = filtersActive || hasDrawnArea;
 
   const listingKey = listings.map((l) => l.id).join(",");
   useEffect(() => {
@@ -266,10 +276,26 @@ export function SearchExperience({
     }
   }, [visibleListings, selectedSlug]);
 
-  function navigateSearch(params: URLSearchParams) {
+  function navigateSearch(
+    params: URLSearchParams,
+    area: LngLatPair[] | null = drawnArea,
+  ) {
     startTransition(() => {
-      const qs = params.toString();
+      const next = withDrawnAreaParam(params, area);
+      const qs = next.toString();
       router.push(qs ? `/search?${qs}` : "/search");
+    });
+  }
+
+  function applyDrawnArea(polygon: LngLatPair[] | null) {
+    setDrawnArea(polygon);
+    const next = withDrawnAreaParam(
+      new URLSearchParams(searchParams.toString()),
+      polygon,
+    );
+    startTransition(() => {
+      const qs = next.toString();
+      router.replace(qs ? `/search?${qs}` : "/search");
     });
   }
 
@@ -313,6 +339,8 @@ export function SearchExperience({
 
   async function saveSearch() {
     if (!canSaveSearch) return;
+    const area =
+      drawnArea && drawnArea.length >= 3 ? drawnArea : undefined;
     const res = await fetch("/api/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -321,7 +349,7 @@ export function SearchExperience({
           locations[0] ||
           initialFilters.q ||
           initialFilters.city ||
-          t("search.saveSearchDefault"),
+          (area ? t("search.mapArea") : t("search.saveSearchDefault")),
         city: initialFilters.city || locations[0],
         minPrice: initialFilters.minPrice
           ? Number(initialFilters.minPrice)
@@ -333,6 +361,7 @@ export function SearchExperience({
           ? Number(initialFilters.minRooms)
           : undefined,
         propertyType: initialFilters.propertyType,
+        drawnArea: area,
       }),
     });
     if (res.status === 401) {
@@ -392,8 +421,8 @@ export function SearchExperience({
                     ? [
                         {
                           key: "draw-area",
-                          label: t("search.drawArea"),
-                          onRemove: () => setDrawnArea(null),
+                          label: t("search.mapArea"),
+                          onRemove: () => applyDrawnArea(null),
                         },
                       ]
                     : undefined
@@ -491,7 +520,7 @@ export function SearchExperience({
                 setFiltersOpen(false);
                 setLocations([]);
                 setDrawnArea(null);
-                navigateSearch(new URLSearchParams());
+                navigateSearch(new URLSearchParams(), null);
               }}
             />
           </div>
@@ -541,7 +570,7 @@ export function SearchExperience({
                 onBoundsChange={(bounds) => {
                   startTransition(() => setMapBounds(bounds));
                 }}
-                onDrawnAreaChange={setDrawnArea}
+                onDrawnAreaChange={applyDrawnArea}
                 savedArea={drawnArea}
                 toolbarClassName={
                   view === "map"

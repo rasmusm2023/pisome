@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { serializeDrawnArea } from "@/lib/geo";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,6 +13,11 @@ const schema = z.object({
   maxPrice: z.number().optional(),
   minRooms: z.number().optional(),
   propertyType: z.string().optional(),
+  drawnArea: z
+    .array(z.tuple([z.number(), z.number()]))
+    .min(3)
+    .max(64)
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,6 +36,9 @@ export async function POST(req: Request) {
       maxPrice: body.maxPrice,
       minRooms: body.minRooms,
       propertyType: body.propertyType,
+      drawnArea: body.drawnArea
+        ? serializeDrawnArea(body.drawnArea)
+        : null,
       alertsOn: true,
       lastAlertAt: new Date(),
     },

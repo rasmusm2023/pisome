@@ -540,8 +540,12 @@ export function SearchMap({
     () => {},
   );
   const [drawing, setDrawing] = useState(false);
-  const [drawVertices, setDrawVertices] = useState<LngLatPair[]>([]);
-  const [drawClosed, setDrawClosed] = useState(false);
+  const [drawVertices, setDrawVertices] = useState<LngLatPair[]>(() =>
+    savedArea && savedArea.length >= 3 ? savedArea : [],
+  );
+  const [drawClosed, setDrawClosed] = useState(() =>
+    Boolean(savedArea && savedArea.length >= 3),
+  );
   const drawingRef = useRef(false);
   const drawVerticesRef = useRef<LngLatPair[]>([]);
   const drawClosedRef = useRef(false);
@@ -1228,6 +1232,16 @@ export function SearchMap({
 
   const parentHasSavedArea = Boolean(savedArea && savedArea.length >= 3);
   const prevParentHasSavedAreaRef = useRef(false);
+  const savedAreaKey =
+    savedArea?.map((pair) => pair.join(",")).join("_") ?? "";
+
+  useEffect(() => {
+    if (!savedArea || savedArea.length < 3) return;
+    setDrawVertices(savedArea);
+    setDrawClosed(true);
+    drawVerticesRef.current = savedArea;
+    drawClosedRef.current = true;
+  }, [savedArea, savedAreaKey]);
 
   useEffect(() => {
     const wasSaved = prevParentHasSavedAreaRef.current;

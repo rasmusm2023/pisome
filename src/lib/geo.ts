@@ -36,3 +36,30 @@ export function isPointInPolygon(
   }
   return inside;
 }
+
+const AREA_PRECISION = 5;
+
+function roundCoord(value: number) {
+  const factor = 10 ** AREA_PRECISION;
+  return Math.round(value * factor) / factor;
+}
+
+export function serializeDrawnArea(vertices: LngLatPair[]): string {
+  return vertices
+    .map(([lng, lat]) => `${roundCoord(lng)},${roundCoord(lat)}`)
+    .join("_");
+}
+
+export function parseDrawnArea(raw?: string | null): LngLatPair[] | null {
+  if (!raw) return null;
+  const ring: LngLatPair[] = [];
+  for (const part of raw.split("_")) {
+    const [lngRaw, latRaw] = part.split(",");
+    const lng = Number(lngRaw);
+    const lat = Number(latRaw);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+    if (Math.abs(lng) > 180 || Math.abs(lat) > 90) return null;
+    ring.push([lng, lat]);
+  }
+  return ring.length >= 3 ? ring : null;
+}
