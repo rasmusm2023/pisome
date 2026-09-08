@@ -38,7 +38,7 @@ export function DrawAreaControls({
       return;
     }
     const wrap = wrapRef.current?.closest(".pisome-map-shell");
-    if (!wrap) return;
+    if (!(wrap instanceof HTMLElement)) return;
 
     const onMove = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null;
