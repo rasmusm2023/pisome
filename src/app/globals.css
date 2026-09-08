@@ -286,6 +286,110 @@ h3,
   font-family: var(--font-body), system-ui, sans-serif !important;
 }
 
+.pisome-map.is-drawing .maplibregl-canvas,
+.pisome-map.is-drawing .maplibregl-canvas-container,
+.pisome-map.is-drawing .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: none !important;
+}
+
+.pisome-map.is-drawing .maplibregl-canvas.is-over-vertex,
+.pisome-map.is-drawing .maplibregl-canvas-container.is-over-vertex {
+  cursor: grab !important;
+}
+
+.pisome-map.is-drawing .maplibregl-canvas.is-dragging-vertex,
+.pisome-map.is-drawing .maplibregl-canvas-container.is-dragging-vertex {
+  cursor: grabbing !important;
+}
+
+.pisome-map:not(.is-drawing) .maplibregl-canvas.is-over-vertex {
+  cursor: grab !important;
+}
+
+.pisome-map:not(.is-drawing) .maplibregl-canvas.is-dragging-vertex {
+  cursor: grabbing !important;
+}
+
+.pisome-map.is-drawing .pisome-marker {
+  pointer-events: none;
+}
+
+.pisome-draw-vertex {
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto !important;
+  cursor: grab !important;
+  touch-action: none;
+}
+
+.pisome-draw-vertex__dot {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--pisome-blue);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(11, 31, 58, 0.28);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    width 0.12s ease,
+    height 0.12s ease;
+  pointer-events: none;
+}
+
+.pisome-draw-vertex--origin .pisome-draw-vertex__dot {
+  width: 15px;
+  height: 15px;
+}
+
+.pisome-draw-vertex:hover .pisome-draw-vertex__dot,
+.pisome-draw-vertex:focus-visible .pisome-draw-vertex__dot,
+.pisome-draw-vertex.is-hot .pisome-draw-vertex__dot {
+  transform: scale(1.35);
+  box-shadow:
+    0 0 0 5px rgba(37, 99, 235, 0.22),
+    0 2px 8px rgba(11, 31, 58, 0.28);
+}
+
+.pisome-draw-vertex.is-dragging {
+  cursor: grabbing;
+}
+
+.pisome-draw-vertex.is-dragging .pisome-draw-vertex__dot {
+  transform: scale(1.45);
+  box-shadow:
+    0 0 0 6px rgba(37, 99, 235, 0.28),
+    0 2px 10px rgba(11, 31, 58, 0.32);
+}
+
+.pisome-draw-vertex--closable .pisome-draw-vertex__dot {
+  width: 18px;
+  height: 18px;
+  border-color: var(--pisome-blue-dark);
+  animation: pisome-draw-pulse 1.15s ease-out infinite;
+}
+
+.pisome-draw-vertex--closable:hover .pisome-draw-vertex__dot,
+.pisome-draw-vertex--closable.is-hot .pisome-draw-vertex__dot,
+.pisome-draw-vertex--closable.is-dragging .pisome-draw-vertex__dot {
+  animation: none;
+}
+
+@keyframes pisome-draw-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+}
+
 /*
   Price markers — animate INNER elements only.
   MapLibre positions the root via transform; never override it.

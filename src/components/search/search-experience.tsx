@@ -8,6 +8,7 @@ import {
   SearchFiltersPanel,
 } from "@/components/search/search-filters-panel";
 import { SearchMap, type MapBounds, type MapListing, isListingInBounds } from "@/components/search/search-map";
+import { isPointInPolygon, type LngLatPair } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
 import { cn } from "@/lib/utils";
@@ -182,6 +183,7 @@ export function SearchExperience({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [drawnArea, setDrawnArea] = useState<LngLatPair[] | null>(null);
   const [mainQuery, setMainQuery] = useState("");
   const [locations, setLocations] = useState(() =>
     locationsFromFilters(initialFilters),
@@ -240,9 +242,22 @@ export function SearchExperience({
   );
 
   const visibleListings = useMemo(() => {
-    if (view === "list" || !mapBounds) return listings;
+    if (view === "list") return listings;
+    if (drawnArea && drawnArea.length >= 3) {
+      return listings.filter((listing) => isPointInPolygon(listing, drawnArea));
+    }
+    if (!mapBounds) return listings;
     return listings.filter((listing) => isListingInBounds(listing, mapBounds));
-  }, [listings, mapBounds, view]);
+  }, [listings, mapBounds, view, drawnArea]);
+
+  const mapListingsForArea = useMemo(() => {
+    if (drawnArea && drawnArea.length >= 3) {
+      return mapListings.filter((listing) =>
+        isPointInPolygon(listing, drawnArea),
+      );
+    }
+    return mapListings;
+  }, [mapListings, drawnArea]);
 
   useEffect(() => {
     if (!selectedSlug) return;
@@ -372,6 +387,17 @@ export function SearchExperience({
               <LocationSearchInput
                 value={mainQuery}
                 tags={locations}
+                extraTags={
+                  drawnArea && drawnArea.length >= 3
+                    ? [
+                        {
+                          key: "draw-area",
+                          label: t("search.drawArea"),
+                          onRemove: () => setDrawnArea(null),
+                        },
+                      ]
+                    : undefined
+                }
                 catalog={catalog}
                 lang={locale}
                 placeholder={t("search.placeholder")}
@@ -464,6 +490,7 @@ export function SearchExperience({
               onClear={() => {
                 setFiltersOpen(false);
                 setLocations([]);
+                setDrawnArea(null);
                 navigateSearch(new URLSearchParams());
               }}
             />
@@ -472,7 +499,7 @@ export function SearchExperience({
 
         <div className="relative flex h-full min-h-0 min-w-0 flex-col">
           {view === "map" && (
-            <div className="pointer-events-none absolute left-3 top-3 z-20 sm:left-4 sm:top-4">
+            <div className="pointer-events-none absolute left-3 top-3 z-30 sm:left-4 sm:top-4">
               <div className="pointer-events-auto animate-[fade-up_0.35s_ease-out]">
                 <ViewToggle
                   view={view}
@@ -495,7 +522,7 @@ export function SearchExperience({
               aria-hidden={view === "list"}
             >
               <SearchMap
-                listings={mapListings}
+                listings={mapListingsForArea}
                 locale={locale}
                 selectedLocations={locations}
                 selectedId={
@@ -514,6 +541,13 @@ export function SearchExperience({
                 onBoundsChange={(bounds) => {
                   startTransition(() => setMapBounds(bounds));
                 }}
+                onDrawnAreaChange={setDrawnArea}
+                savedArea={drawnArea}
+                toolbarClassName={
+                  view === "map"
+                    ? "left-3 top-14 sm:left-4 sm:top-16"
+                    : "left-3 top-3 sm:left-4 sm:top-4"
+                }
               />
             </div>
 
