@@ -70,7 +70,6 @@
     "drawArea": "Dibujar zona",
     "mapArea": "Zona del mapa",
     "resetDrawArea": "Restablecer zona",
-    "saveDrawArea": "Guardar zona",
     "removeDrawArea": "Quitar zona",
     "drawAreaHint": "Clic para añadir puntos · Arrastra los puntos para moverlos · Clic en el primer punto para cerrar",
     "drawVertexDrag": "Arrastra para mover",

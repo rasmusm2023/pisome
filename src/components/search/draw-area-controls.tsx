@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Check, Pentagon, Pencil, RotateCcw, X } from "lucide-react";
+import { Pentagon, Pencil, RotateCcw, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
@@ -9,23 +9,19 @@ type CursorPos = { x: number; y: number };
 
 export function DrawAreaControls({
   drawing,
-  canSave,
   canReset,
   hasSavedArea,
   toolbarClassName,
   onToggle,
   onReset,
-  onSave,
   onRemove,
 }: {
   drawing: boolean;
-  canSave: boolean;
   canReset: boolean;
   hasSavedArea: boolean;
   toolbarClassName?: string;
   onToggle: () => void;
   onReset: () => void;
-  onSave: () => void;
   onRemove: () => void;
 }) {
   const t = useTranslations();
@@ -127,32 +123,18 @@ export function DrawAreaControls({
         </div>
 
         {drawing && (
-          <div className="flex flex-col items-start gap-2 animate-[fade-up_0.2s_ease-out]">
-            <button
-              type="button"
-              className={cn(
-                btnBase,
-                "border-pisome-border bg-white text-pisome-navy hover:bg-pisome-alice",
-              )}
-              disabled={!canReset}
-              onClick={onReset}
-            >
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              {t("search.resetDrawArea")}
-            </button>
-            <button
-              type="button"
-              className={cn(
-                btnBase,
-                "border-pisome-border bg-white text-pisome-navy hover:bg-pisome-alice",
-              )}
-              disabled={!canSave}
-              onClick={onSave}
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden />
-              {t("search.saveDrawArea")}
-            </button>
-          </div>
+          <button
+            type="button"
+            className={cn(
+              btnBase,
+              "animate-[fade-up_0.2s_ease-out] border-pisome-border bg-white text-pisome-navy hover:bg-pisome-alice",
+            )}
+            disabled={!canReset}
+            onClick={onReset}
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            {t("search.resetDrawArea")}
+          </button>
         )}
       </div>
 

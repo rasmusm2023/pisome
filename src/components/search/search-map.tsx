@@ -582,8 +582,12 @@ export function SearchMap({
   };
   closeDrawRef.current = () => {
     if (drawClosedRef.current || drawVerticesRef.current.length < 3) return;
+    const vertices = drawVerticesRef.current.slice();
+    drawClosedRef.current = true;
     setDrawClosed(true);
+    setDrawing(false);
     drawCursorRef.current = null;
+    onDrawnAreaChangeRef.current?.(vertices);
   };
   moveDrawVertexRef.current = (index, point) => {
     draggingVertexRef.current = index;
@@ -1259,14 +1263,6 @@ export function SearchMap({
     onDrawnAreaChangeRef.current?.(null);
   }
 
-  function saveDrawArea() {
-    if (drawVertices.length < 3) return;
-    setDrawClosed(true);
-    setDrawing(false);
-    drawCursorRef.current = null;
-    onDrawnAreaChangeRef.current?.(drawVertices);
-  }
-
   const hasSavedArea = parentHasSavedArea;
 
   return (
@@ -1277,13 +1273,11 @@ export function SearchMap({
       />
       <DrawAreaControls
         drawing={drawing}
-        canSave={drawVertices.length >= 3}
         canReset={drawVertices.length > 0}
         hasSavedArea={hasSavedArea}
         toolbarClassName={toolbarClassName}
         onToggle={toggleDrawing}
         onReset={resetDrawArea}
-        onSave={saveDrawArea}
         onRemove={resetDrawArea}
       />
     </div>

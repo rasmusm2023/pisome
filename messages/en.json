@@ -70,7 +70,6 @@
     "drawArea": "Draw area",
     "mapArea": "Map area",
     "resetDrawArea": "Reset draw area",
-    "saveDrawArea": "Save draw area",
     "removeDrawArea": "Remove draw area",
     "drawAreaHint": "Click to add points · Drag points to move · Click the first point to close",
     "drawVertexDrag": "Drag to move",
