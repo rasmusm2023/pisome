@@ -32,7 +32,7 @@ export function HomeSearch({ catalog }: { catalog: FilterCatalogItem[] }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-2xl">
+    <form onSubmit={onSubmit} className="w-full">
       <div className="mb-4 inline-flex rounded-full bg-white/15 p-1 ring-1 ring-white/25 backdrop-blur-md">
         <button
           type="button"
@@ -66,7 +66,7 @@ export function HomeSearch({ catalog }: { catalog: FilterCatalogItem[] }) {
         </div>
       ) : (
         <>
-          <div className="flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/25 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/25 sm:flex-row sm:items-center">
             <LocationSearchInput
               className="min-w-0 flex-1"
               fieldClassName="min-h-12 border-0 bg-transparent px-3 shadow-none ring-0 focus-within:border-transparent focus-within:ring-0"

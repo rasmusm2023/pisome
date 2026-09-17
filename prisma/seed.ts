@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import type { PackageTier, PropertyType } from "../src/lib/types";
+import type { PackageTier } from "../src/lib/types";
 import bcrypt from "bcryptjs";
+import { generateFakeListings } from "./fake-listings";
+import type { SeedListing } from "./seed-types";
 
 const prisma = new PrismaClient();
 
@@ -9,41 +11,21 @@ const photos = [
   "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1400&q=80",
   "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1400&q=80",
   "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1400&q=80",
-  "https://images.unsplash.com/photo-1600047509807-ba8f99d2cd00?w=1400&q=80",
   "https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=1400&q=80",
   "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1400&q=80",
+  "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1400&q=80",
+  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1400&q=80",
+  "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1400&q=80",
+  "https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?w=1400&q=80",
+  "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1400&q=80",
+  "https://images.unsplash.com/photo-1600585153490-76fb20a32601?w=1400&q=80",
+  "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&q=80",
+  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1400&q=80",
+  "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1400&q=80",
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1400&q=80",
+  "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1400&q=80",
+  "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=1400&q=80",
 ];
-
-type SeedListing = {
-  slug: string;
-  title: string;
-  titleEn: string;
-  description: string;
-  descriptionEn: string;
-  propertyType: PropertyType;
-  price: number;
-  rooms: number;
-  bathrooms: number;
-  areaM2: number;
-  floor?: number;
-  yearBuilt?: number;
-  energyCert: "A" | "B" | "C" | "D" | "E";
-  hasElevator?: boolean;
-  hasParking?: boolean;
-  hasTerrace?: boolean;
-  hasPool?: boolean;
-  isNewBuild?: boolean;
-  tags?: string[];
-  address: string;
-  neighborhood: string;
-  city: string;
-  province: string;
-  lat: number;
-  lng: number;
-  packageTier?: PackageTier;
-  featured?: boolean;
-  photoOffset?: number;
-};
 
 const listings: SeedListing[] = [
   {
@@ -375,6 +357,66 @@ const listings: SeedListing[] = [
   },
 ];
 
+const generated = generateFakeListings(new Set(listings.map((l) => l.slug)));
+const allListings: SeedListing[] = [...listings, ...generated];
+
+async function insertListing(
+  item: SeedListing,
+  agentId: string,
+  organizationId: string,
+  publishedAt: Date,
+) {
+  const offset = item.photoOffset ?? 0;
+  const mediaUrls = Array.from({ length: 5 }, (_, i) => photos[(offset + i) % photos.length]);
+
+  await prisma.listing.create({
+    data: {
+      slug: item.slug,
+      title: item.title,
+      titleEn: item.titleEn,
+      description: item.description,
+      descriptionEn: item.descriptionEn,
+      purpose: "SALE",
+      propertyType: item.propertyType,
+      status: "LIVE",
+      packageTier: item.packageTier ?? "ESSENTIAL",
+      featured: item.featured ?? false,
+      price: item.price,
+      rooms: item.rooms,
+      bathrooms: item.bathrooms,
+      areaM2: item.areaM2,
+      floor: item.floor,
+      yearBuilt: item.yearBuilt,
+      energyCert: item.energyCert,
+      hasElevator: item.hasElevator ?? false,
+      hasParking: item.hasParking ?? false,
+      hasTerrace: item.hasTerrace ?? false,
+      hasPool: item.hasPool ?? false,
+      isNewBuild: item.isNewBuild ?? false,
+      tags: JSON.stringify(item.tags ?? []),
+      address: item.address,
+      neighborhood: item.neighborhood,
+      city: item.city,
+      province: item.province,
+      lat: item.lat,
+      lng: item.lng,
+      publishedAt,
+      agentId,
+      organizationId,
+      attrs: JSON.stringify({ rentalReady: true }),
+      media: {
+        create: mediaUrls.map((url, i) => ({
+          url,
+          alt: `${item.title} ${i + 1}`,
+          sortOrder: i,
+          width: 1400,
+          height: 933,
+        })),
+      },
+    },
+  });
+}
+
 async function main() {
   console.log("Seeding Pisome…");
 
@@ -421,56 +463,16 @@ async function main() {
     },
   });
 
-  for (const item of listings) {
-    const offset = item.photoOffset ?? 0;
-    const mediaUrls = Array.from({ length: 5 }, (_, i) => photos[(offset + i) % photos.length]);
-
-    await prisma.listing.create({
-      data: {
-        slug: item.slug,
-        title: item.title,
-        titleEn: item.titleEn,
-        description: item.description,
-        descriptionEn: item.descriptionEn,
-        purpose: "SALE",
-        propertyType: item.propertyType,
-        status: "LIVE",
-        packageTier: item.packageTier ?? "ESSENTIAL",
-        featured: item.featured ?? false,
-        price: item.price,
-        rooms: item.rooms,
-        bathrooms: item.bathrooms,
-        areaM2: item.areaM2,
-        floor: item.floor,
-        yearBuilt: item.yearBuilt,
-        energyCert: item.energyCert,
-        hasElevator: item.hasElevator ?? false,
-        hasParking: item.hasParking ?? false,
-        hasTerrace: item.hasTerrace ?? false,
-        hasPool: item.hasPool ?? false,
-        isNewBuild: item.isNewBuild ?? false,
-        tags: JSON.stringify(item.tags ?? []),
-        address: item.address,
-        neighborhood: item.neighborhood,
-        city: item.city,
-        province: item.province,
-        lat: item.lat,
-        lng: item.lng,
-        publishedAt: new Date(),
-        agentId: agent.id,
-        organizationId: org.id,
-        attrs: JSON.stringify({ rentalReady: true }),
-        media: {
-          create: mediaUrls.map((url, i) => ({
-            url,
-            alt: `${item.title} ${i + 1}`,
-            sortOrder: i,
-            width: 1400,
-            height: 933,
-          })),
-        },
-      },
-    });
+  const now = Date.now();
+  for (let i = 0; i < allListings.length; i++) {
+    const item = allListings[i]!;
+    const daysAgo = item.featured ? i % 12 : 3 + ((i * 7) % 80);
+    await insertListing(
+      item,
+      agent.id,
+      org.id,
+      new Date(now - daysAgo * 86_400_000),
+    );
   }
 
   const { PACKAGE_PRICES } = await import("../src/lib/packages");
@@ -488,7 +490,9 @@ async function main() {
     });
   }
 
-  console.log(`Seeded ${listings.length} listings across Madrid, Barcelona, Málaga, Valencia.`);
+  const cities = [...new Set(allListings.map((l) => l.city))].sort();
+  console.log(`Seeded ${allListings.length} listings across ${cities.length} cities.`);
+  console.log(`Cities: ${cities.join(", ")}`);
   console.log("Demo users: seeker@pisome.es / agent@pisome.es — password: pisome123");
 }
 

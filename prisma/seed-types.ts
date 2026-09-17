@@ -1,0 +1,32 @@
+import type { PackageTier, PropertyType } from "../src/lib/types";
+
+export type SeedListing = {
+  slug: string;
+  title: string;
+  titleEn: string;
+  description: string;
+  descriptionEn: string;
+  propertyType: PropertyType;
+  price: number;
+  rooms: number;
+  bathrooms: number;
+  areaM2: number;
+  floor?: number;
+  yearBuilt?: number;
+  energyCert: "A" | "B" | "C" | "D" | "E";
+  hasElevator?: boolean;
+  hasParking?: boolean;
+  hasTerrace?: boolean;
+  hasPool?: boolean;
+  isNewBuild?: boolean;
+  tags?: string[];
+  address: string;
+  neighborhood: string;
+  city: string;
+  province: string;
+  lat: number;
+  lng: number;
+  packageTier?: PackageTier;
+  featured?: boolean;
+  photoOffset?: number;
+};
