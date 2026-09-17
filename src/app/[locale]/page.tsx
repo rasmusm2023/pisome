@@ -1,8 +1,19 @@
+import { HomeListingTile } from "@/components/home/home-listing-tile";
+import { HomeSearch } from "@/components/home/home-search";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import {
+  getFilterCatalog,
+  getMarketplacePulse,
+  searchListings,
+} from "@/lib/listings";
 import { LAUNCH_CITIES } from "@/lib/utils";
-import { ArrowRight, Bell, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import Image from "next/image";
+
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=2400&q=80";
 
 export default async function HomePage({
   params,
@@ -12,108 +23,119 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
+  const [catalog, pulse, latest] = await Promise.all([
+    getFilterCatalog(),
+    getMarketplacePulse(),
+    searchListings({ sort: "featured", take: 8 }),
+  ]);
 
   return (
     <div>
-      <section className="pisome-gradient relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1800&q=80)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            maskImage:
-              "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.15) 55%, transparent)",
-            WebkitMaskImage:
-              "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.15) 55%, transparent)",
-          }}
-        />
-        <div className="relative flex min-h-[78vh] flex-col justify-center px-4 py-20 sm:px-6 lg:px-8">
-          <p className="animate-fade-up font-display text-5xl font-bold tracking-tight text-pisome-navy sm:text-7xl">
-            {t("brand")}
+      <section className="relative isolate -mt-16 min-h-[100svh]">
+        <div className="absolute inset-0 overflow-hidden">
+          <Image
+            src={HERO_IMAGE}
+            alt=""
+            fill
+            priority
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-pisome-navy via-pisome-navy/55 to-pisome-navy/25" />
+        </div>
+        <div className="relative flex min-h-[100svh] flex-col justify-end px-4 pb-16 pt-24 sm:justify-center sm:px-6 sm:pb-24 lg:px-8">
+          <p className="text-sm font-semibold text-white/75">
+            {t("home.homesForSale", { count: pulse.total })}
           </p>
-          <h1 className="animate-fade-up mt-4 max-w-2xl font-display text-2xl font-semibold text-pisome-navy/90 sm:text-4xl" style={{ animationDelay: "80ms" }}>
-            {t("tagline")}
+          <h1 className="mt-2 max-w-3xl font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
+            {t("home.headline")}
           </h1>
-          <p className="animate-fade-up mt-4 max-w-xl text-base text-pisome-muted sm:text-lg" style={{ animationDelay: "140ms" }}>
-            {t("heroSubtitle")}
+          <p className="mt-3 max-w-xl text-base text-white/80 sm:text-lg">
+            {t("home.searchHint")}
           </p>
-          <div className="animate-fade-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
-            <Link href="/search">
-              <Button size="lg" variant="accent">
-                {t("cta.searchHomes")}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/agent">
-              <Button size="lg" variant="outline">
-                {t("cta.listHome")}
-              </Button>
-            </Link>
+          <div className="mt-8">
+            <HomeSearch catalog={catalog} />
           </div>
         </div>
       </section>
 
-      <section className="px-4 py-16 sm:px-6 lg:px-8">
-        <h2 className="font-display text-2xl font-semibold text-pisome-navy">
-          {t("home.cities")}
-        </h2>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-          {LAUNCH_CITIES.map((city) => (
-            <Link
-              key={city.slug}
-              href={`/search?city=${encodeURIComponent(city.name)}`}
-              className="rounded-2xl border border-pisome-border bg-white px-5 py-6 transition hover:-translate-y-0.5 hover:border-pisome-blue hover:shadow-md"
-            >
-              <p className="font-display text-xl font-semibold text-pisome-navy">
-                {locale === "en" ? city.nameEn : city.name}
-              </p>
-              <p className="mt-1 text-sm text-pisome-muted">
-                {t("cta.searchHomes")} →
-              </p>
-            </Link>
+      <section className="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="flex items-end justify-between gap-4">
+          <h2 className="font-display text-2xl font-semibold text-pisome-navy">
+            {t("home.cities")}
+          </h2>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {LAUNCH_CITIES.map((city) => {
+            const count = pulse.byCity[city.name] ?? 0;
+            return (
+              <Link
+                key={city.slug}
+                href={`/search?city=${encodeURIComponent(city.name)}`}
+                className="group relative aspect-[4/5] overflow-hidden rounded-2xl sm:aspect-[5/4] lg:aspect-[4/5]"
+              >
+                <Image
+                  src={city.image}
+                  alt={locale === "en" ? city.nameEn : city.name}
+                  fill
+                  className="object-cover transition duration-500 group-hover:scale-105"
+                  sizes="(max-width: 1024px) 50vw, 25vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-4">
+                  <p className="font-display text-xl font-semibold text-white">
+                    {locale === "en" ? city.nameEn : city.name}
+                  </p>
+                  <p className="text-sm text-white/80">
+                    {t("home.inCity", { count })}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="border-t border-pisome-border bg-white px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="flex items-end justify-between gap-4">
+          <h2 className="font-display text-2xl font-semibold text-pisome-navy">
+            {t("home.latest")}
+          </h2>
+          <Link
+            href="/search"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-pisome-blue hover:text-pisome-blue-dark"
+          >
+            {t("home.seeAll")}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {latest.map((listing, index) => (
+            <HomeListingTile
+              key={listing.id}
+              listing={listing}
+              priority={index < 4}
+            />
           ))}
         </div>
       </section>
 
-      <section className="border-y border-pisome-border bg-white">
-        <div className="px-4 py-16 sm:px-6 lg:px-8">
-          <h2 className="font-display text-2xl font-semibold text-pisome-navy">
-            {t("home.why")}
-          </h2>
-          <div className="mt-8 grid gap-8 md:grid-cols-3 xl:grid-cols-3 xl:gap-12">
-            {[
-              {
-                icon: Sparkles,
-                title: t("home.whyClarity"),
-                body: t("home.whyClarityBody"),
-              },
-              {
-                icon: Bell,
-                title: t("home.whySpeed"),
-                body: t("home.whySpeedBody"),
-              },
-              {
-                icon: ShieldCheck,
-                title: t("home.whyTrust"),
-                body: t("home.whyTrustBody"),
-              },
-            ].map((item) => (
-              <div key={item.title} className="space-y-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-pisome-alice text-pisome-blue">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-display text-lg font-semibold text-pisome-navy">
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-pisome-muted">
-                  {item.body}
-                </p>
-              </div>
-            ))}
+      <section className="bg-pisome-navy px-4 py-12 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="font-display text-2xl font-semibold text-white">
+              {t("home.sellTitle")}
+            </h2>
+            <p className="mt-2 max-w-xl text-sm text-white/70">
+              {t("home.sellBody")}
+            </p>
           </div>
-          <p className="mt-10 text-sm text-pisome-muted">{t("home.comingRent")}</p>
+          <Link href="/agent">
+            <Button size="lg" variant="accent">
+              {t("cta.listHome")}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </section>
     </div>
