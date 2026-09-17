@@ -31,7 +31,7 @@ export default async function HomePage({
 
   return (
     <div>
-      <section className="relative isolate -mt-16 min-h-[100svh]">
+      <section className="relative isolate -mt-16 min-h-[calc(100svh-13.5rem)]">
         <div className="absolute inset-0 overflow-hidden">
           <Image
             src={HERO_IMAGE}
@@ -43,23 +43,25 @@ export default async function HomePage({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-pisome-navy via-pisome-navy/55 to-pisome-navy/25" />
         </div>
-        <div className="relative flex min-h-[100svh] flex-col justify-end px-4 pb-16 pt-24 sm:justify-center sm:px-6 sm:pb-24 lg:px-8">
-          <p className="text-sm font-semibold text-white/75">
-            {t("home.homesForSale", { count: pulse.total })}
-          </p>
-          <h1 className="mt-2 max-w-3xl font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
-            {t("home.headline")}
-          </h1>
-          <p className="mt-3 max-w-xl text-base text-white/80 sm:text-lg">
-            {t("home.searchHint")}
-          </p>
-          <div className="mt-8">
-            <HomeSearch catalog={catalog} />
+        <div className="relative flex min-h-[calc(100svh-13.5rem)] items-center justify-center px-4 pb-10 pt-24 sm:px-6 lg:px-8">
+          <div className="w-full max-w-2xl text-left">
+            <p className="text-sm font-semibold text-white/75">
+              {t("home.homesForSale", { count: pulse.total })}
+            </p>
+            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
+              {t("home.headline")}
+            </h1>
+            <p className="mt-3 max-w-xl text-base text-white/80 sm:text-lg">
+              {t("home.searchHint")}
+            </p>
+            <div className="mt-8">
+              <HomeSearch catalog={catalog} />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+      <section className="px-4 pb-12 pt-8 sm:px-6 sm:pb-16 lg:px-8">
         <div className="flex items-end justify-between gap-4">
           <h2 className="font-display text-2xl font-semibold text-pisome-navy">
             {t("home.cities")}
@@ -131,7 +133,7 @@ export default async function HomePage({
             </p>
           </div>
           <Link href="/agent">
-            <Button size="lg" variant="accent">
+            <Button size="lg" variant="primary">
               {t("cta.listHome")}
               <ArrowRight className="h-4 w-4" />
             </Button>

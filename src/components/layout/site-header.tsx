@@ -4,7 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { Heart, Menu, X } from "lucide-react";
+import { Heart, HousePlus, Menu, Search, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -31,9 +31,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   }, [overlay]);
 
   const links = [
-    { href: "/search", label: t("nav.search") },
-    { href: "/saved", label: t("nav.saved") },
-    { href: "/agent", label: t("nav.list") },
+    { href: "/search", label: t("nav.search"), icon: Search },
+    { href: "/saved", label: t("nav.saved"), icon: Heart },
+    { href: "/agent", label: t("nav.list"), icon: HousePlus },
   ];
 
   return (
@@ -45,18 +45,22 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           : "border-b border-pisome-border/70 bg-white/90 backdrop-blur-md",
       )}
     >
-      <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="shrink-0" onClick={() => setOpen(false)}>
+      <div className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="col-start-1 justify-self-start"
+          onClick={() => setOpen(false)}
+        >
           <Logo inverted={inverted} />
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="col-start-2 hidden shrink-0 items-center gap-1 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition",
+                "inline-flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
                 inverted
                   ? "text-white/85 hover:bg-white/10 hover:text-white"
                   : "text-pisome-muted hover:bg-pisome-alice hover:text-pisome-navy",
@@ -66,12 +70,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                     : "bg-pisome-alice text-pisome-navy"),
               )}
             >
+              <link.icon className="h-4 w-4 shrink-0" aria-hidden />
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="col-start-3 flex items-center justify-end gap-2 justify-self-end">
+          <div className="hidden items-center gap-2 md:flex">
           <Link
             href={pathname}
             locale={otherLocale}
@@ -139,7 +145,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               </Link>
             </>
           )}
-        </div>
+          </div>
 
         <button
           className={cn(
@@ -151,6 +157,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
+        </div>
       </div>
 
       {open && (
@@ -160,9 +167,10 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-3 text-sm font-medium text-pisome-navy hover:bg-pisome-alice"
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-medium text-pisome-navy hover:bg-pisome-alice"
                 onClick={() => setOpen(false)}
               >
+                <link.icon className="h-4 w-4 shrink-0" aria-hidden />
                 {link.label}
               </Link>
             ))}
