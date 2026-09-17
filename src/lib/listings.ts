@@ -68,6 +68,7 @@ export type ListingFilters = {
   hasTerrace?: boolean;
   hasPool?: boolean;
   sort?: ListingSort;
+  take?: number;
 };
 
 export async function searchListings(filters: ListingFilters = {}) {
@@ -203,6 +204,7 @@ export async function searchListings(filters: ListingFilters = {}) {
       agent: { select: { id: true, name: true, email: true, phone: true } },
     },
     orderBy,
+    take: filters.take,
   });
 
   if (filters.minPricePerM2 != null || filters.maxPricePerM2 != null) {
@@ -254,6 +256,23 @@ export async function getFilterCatalog(): Promise<FilterCatalogItem[]> {
       isNewBuild: true,
     },
   });
+}
+
+export async function getMarketplacePulse() {
+  const where = { status: "LIVE" as const, purpose: "SALE" as const };
+  const [total, grouped] = await Promise.all([
+    prisma.listing.count({ where }),
+    prisma.listing.groupBy({
+      by: ["city"],
+      where,
+      _count: { _all: true },
+    }),
+  ]);
+  const byCity: Record<string, number> = {};
+  for (const row of grouped) {
+    byCity[row.city] = row._count._all;
+  }
+  return { total, byCity };
 }
 
 export async function getListingBySlug(slug: string) {

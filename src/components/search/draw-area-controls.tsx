@@ -24,7 +24,7 @@ export function DrawAreaControls({
   onReset: () => void;
   onRemove: () => void;
 }) {
-  const t = useTranslations();
+  const t = useTranslations("search");
   const wrapRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<CursorPos | null>(null);
 
@@ -104,7 +104,7 @@ export function DrawAreaControls({
             onClick={onToggle}
           >
             <Pentagon className="h-3.5 w-3.5" aria-hidden />
-            {t("search.drawArea")}
+            {t("drawArea")}
           </button>
 
           {hasSavedArea && (
@@ -117,7 +117,7 @@ export function DrawAreaControls({
               onClick={onRemove}
             >
               <X className="h-3.5 w-3.5" aria-hidden />
-              {t("search.removeDrawArea")}
+              {t("removeDrawArea")}
             </button>
           )}
         </div>
@@ -133,7 +133,7 @@ export function DrawAreaControls({
             onClick={onReset}
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            {t("search.resetDrawArea")}
+            {t("resetDrawArea")}
           </button>
         )}
       </div>
@@ -141,7 +141,7 @@ export function DrawAreaControls({
       {drawing && (
         <div className="absolute inset-x-3 bottom-8 flex justify-center sm:inset-x-4">
           <p className="rounded-xl border border-pisome-border bg-white/95 px-3 py-1.5 text-center text-[11px] font-semibold text-pisome-navy shadow-sm shadow-pisome-navy/5">
-            {t("search.drawAreaHint")}
+            {t("drawAreaHint")}
           </p>
         </div>
       )}

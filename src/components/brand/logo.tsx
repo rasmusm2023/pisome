@@ -3,9 +3,11 @@ import { cn } from "@/lib/utils";
 export function Logo({
   className,
   markOnly = false,
+  inverted = false,
 }: {
   className?: string;
   markOnly?: boolean;
+  inverted?: boolean;
 }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
@@ -26,7 +28,12 @@ export function Logo({
         <circle cx="22.5" cy="11.5" r="3.2" fill="#0D9488" />
       </svg>
       {!markOnly && (
-        <span className="font-display text-xl font-semibold tracking-tight text-pisome-navy">
+        <span
+          className={cn(
+            "font-display text-xl font-semibold tracking-tight",
+            inverted ? "text-white" : "text-pisome-navy",
+          )}
+        >
           Pisome
         </span>
       )}

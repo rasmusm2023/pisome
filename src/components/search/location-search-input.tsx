@@ -107,6 +107,7 @@ export function LocationSearchInput({
   streetLabel,
   lang = "es",
   className,
+  fieldClassName,
   tags,
   onAddTag,
   onRemoveTag,
@@ -123,6 +124,7 @@ export function LocationSearchInput({
   streetLabel: string;
   lang?: string;
   className?: string;
+  fieldClassName?: string;
   /** When set, Enter / suggestion adds removable location tags. */
   tags?: string[];
   onAddTag?: (tag: string) => void;
@@ -305,7 +307,10 @@ export function LocationSearchInput({
   return (
     <div className={cn("relative", className)}>
       <div
-        className="flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-pisome-border bg-white px-2.5 py-1.5 transition focus-within:border-pisome-blue focus-within:ring-2 focus-within:ring-pisome-blue/15"
+        className={cn(
+          "flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-pisome-border bg-white px-2.5 py-1.5 transition focus-within:border-pisome-blue focus-within:ring-2 focus-within:ring-pisome-blue/15",
+          fieldClassName,
+        )}
         onClick={() => inputRef.current?.focus()}
       >
         {extraTags?.map((tag) => (
@@ -389,7 +394,7 @@ export function LocationSearchInput({
         <ul
           ref={listRef}
           id={listboxId}
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-72 overflow-auto rounded-xl border border-pisome-border bg-white shadow-lg shadow-pisome-navy/10"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-72 overflow-auto rounded-xl border border-pisome-border bg-white shadow-lg shadow-pisome-navy/10"
           role="listbox"
         >
           {suggestions.map((suggestion, index) => (

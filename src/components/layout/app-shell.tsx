@@ -12,10 +12,11 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const isSearch = pathname === "/search" || pathname.startsWith("/search/");
+  const isHome = pathname === "/";
 
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
+      <SiteHeader overlay={isHome} />
       <main className={isSearch ? "min-h-0 flex-1" : "flex-1"}>{children}</main>
       {!isSearch && footer}
     </div>
