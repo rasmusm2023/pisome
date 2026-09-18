@@ -22,7 +22,7 @@ function rng(seed: number) {
   };
 }
 
-function pick<T>(rand: () => number, items: T[]): T {
+function pick<T>(rand: () => number, items: readonly T[]): T {
   return items[Math.floor(rand() * items.length)]!;
 }
 
