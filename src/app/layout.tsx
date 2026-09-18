@@ -29,7 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${display.variable} ${body.variable} h-full antialiased`}>
+    <html
+      lang="es"
+      data-scroll-behavior="smooth"
+      className={`${display.variable} ${body.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

@@ -14,7 +14,7 @@ const DEFAULT_PHOTOS = [
   "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80",
   "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1200&q=80",
   "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1200&q=80",
-  "https://images.unsplash.com/photo-1600047509807-ba8f99d2cd00?w=1200&q=80",
+  "https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=1200&q=80",
 ];
 
 export default function NewListingPage() {
