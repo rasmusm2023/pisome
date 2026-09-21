@@ -202,7 +202,17 @@
     "comingRent": "Alquiler llega pronto — con la confianza de Qasa y HomeQ."
   },
   "footer": {
-    "rights": "© {year} Pisome. Hecho para el mercado español."
+    "rights": "© {year} Pisome. Hecho para el mercado español.",
+    "blurb": "Busca y publica vivienda en España con un mapa limpio, datos claros y claridad nórdica.",
+    "buy": "Comprar",
+    "sell": "Vender",
+    "account": "Cuenta",
+    "cities": "Ciudades populares",
+    "allHomes": "Todas las viviendas en venta",
+    "packages": "Paquetes de anuncio",
+    "contact": "Contacto",
+    "language": "Idioma",
+    "email": "hola@pisome.es"
   },
   "propertyTypes": {
     "APARTMENT": "Piso",
