@@ -31,7 +31,7 @@ export default async function HomePage({
 
   return (
     <div>
-      <section className="relative isolate -mt-16 min-h-[calc(100svh-13.5rem)]">
+      <section className="relative z-20 isolate -mt-16 min-h-[calc(100svh-13.5rem)]">
         <div className="absolute inset-0 overflow-hidden">
           <Image
             src={HERO_IMAGE}

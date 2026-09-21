@@ -17,6 +17,20 @@ export type FilterCatalogItem = {
 };
 
 /** Client-safe catalog matching — no Prisma / Node APIs. */
+
+/** "Torrevieja, Alicante" should also match listings whose city is Torrevieja. */
+export function locationNeedles(loc: string): string[] {
+  const t = loc.trim();
+  if (!t) return [];
+  const needles = [t];
+  const comma = t.indexOf(",");
+  if (comma > 0) {
+    const head = t.slice(0, comma).trim();
+    if (head && head.toLowerCase() !== t.toLowerCase()) needles.push(head);
+  }
+  return needles;
+}
+
 export function countCatalogMatches(
   catalog: FilterCatalogItem[],
   filters: {
@@ -59,7 +73,13 @@ export function countCatalogMatches(
     const hay =
       `${item.title} ${item.address} ${item.neighborhood} ${item.city}`.toLowerCase();
     if (locations.length > 0) {
-      if (!locations.some((loc) => hay.includes(loc))) return false;
+      if (
+        !locations.some((loc) =>
+          locationNeedles(loc).some((needle) => hay.includes(needle)),
+        )
+      ) {
+        return false;
+      }
     } else if (q && !hay.includes(q)) {
       return false;
     }

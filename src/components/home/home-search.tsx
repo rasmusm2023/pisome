@@ -32,7 +32,7 @@ export function HomeSearch({ catalog }: { catalog: FilterCatalogItem[] }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full">
+    <form onSubmit={onSubmit} className="relative z-10 w-full">
       <div className="mb-4 inline-flex rounded-full bg-white/15 p-1 ring-1 ring-white/25 backdrop-blur-md">
         <button
           type="button"

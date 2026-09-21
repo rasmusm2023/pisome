@@ -202,7 +202,17 @@
     "comingRent": "Rentals coming soon — with Qasa and HomeQ-level trust."
   },
   "footer": {
-    "rights": "© {year} Pisome. Built for the Spanish housing market."
+    "rights": "© {year} Pisome. Built for the Spanish housing market.",
+    "blurb": "Search and list homes in Spain with a clean map, honest data, and Nordic-level clarity.",
+    "buy": "Buy",
+    "sell": "Sell",
+    "account": "Account",
+    "cities": "Popular cities",
+    "allHomes": "All homes for sale",
+    "packages": "Listing packages",
+    "contact": "Contact",
+    "language": "Language",
+    "email": "hola@pisome.es"
   },
   "propertyTypes": {
     "APARTMENT": "Apartment",

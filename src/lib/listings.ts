@@ -2,7 +2,10 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import type { ListingPurpose, PropertyType } from "@/lib/types";
-import type { FilterCatalogItem } from "@/lib/filter-catalog";
+import {
+  locationNeedles,
+  type FilterCatalogItem,
+} from "@/lib/filter-catalog";
 import { KEYWORD_CATALOG } from "@/lib/keyword-catalog";
 import { prisma } from "./db";
 
@@ -87,12 +90,14 @@ export async function searchListings(filters: ListingFilters = {}) {
     .filter(Boolean);
   if (locations.length > 0) {
     and.push({
-      OR: locations.flatMap((loc) => [
-        { title: { contains: loc } },
-        { neighborhood: { contains: loc } },
-        { city: { contains: loc } },
-        { address: { contains: loc } },
-      ]),
+      OR: locations.flatMap((loc) =>
+        locationNeedles(loc).flatMap((needle) => [
+          { title: { contains: needle } },
+          { neighborhood: { contains: needle } },
+          { city: { contains: needle } },
+          { address: { contains: needle } },
+        ]),
+      ),
     });
   } else if (filters.q) {
     and.push({

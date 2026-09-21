@@ -1,9 +1,24 @@
 "use client";
 
 import type { FilterCatalogItem } from "@/lib/filter-catalog";
+import { suggestSpanishPlaces } from "@/lib/spanish-places";
 import { cn } from "@/lib/utils";
 import { MapPin, Pentagon, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+
+function fold(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 export type LocationSuggestion = {
   label: string;
@@ -17,7 +32,7 @@ export function buildCatalogSuggestions(
   query: string,
   limit = 6,
 ): LocationSuggestion[] {
-  const q = query.trim().toLowerCase();
+  const q = fold(query.trim());
   if (q.length < 2) return [];
 
   const cities = new Map<string, LocationSuggestion>();
@@ -25,7 +40,12 @@ export function buildCatalogSuggestions(
   const streets = new Map<string, LocationSuggestion>();
 
   for (const item of catalog) {
-    if (item.city.toLowerCase().includes(q)) {
+    const city = fold(item.city);
+    const neighborhood = fold(item.neighborhood);
+    const address = fold(item.address);
+    const neighborhoodLabel = fold(`${item.neighborhood}, ${item.city}`);
+
+    if (city.includes(q)) {
       cities.set(item.city, {
         label: item.city,
         kind: "city",
@@ -33,7 +53,7 @@ export function buildCatalogSuggestions(
         city: item.city,
       });
     }
-    if (item.neighborhood.toLowerCase().includes(q)) {
+    if (neighborhood.includes(q) || neighborhoodLabel.includes(q)) {
       const key = `${item.neighborhood}|${item.city}`;
       neighborhoods.set(key, {
         label: `${item.neighborhood}, ${item.city}`,
@@ -42,7 +62,7 @@ export function buildCatalogSuggestions(
         city: item.city,
       });
     }
-    if (item.address.toLowerCase().includes(q)) {
+    if (address.includes(q)) {
       streets.set(item.address, {
         label: item.address,
         kind: "street",
@@ -59,7 +79,7 @@ export function buildCatalogSuggestions(
   ]
     .sort((a, b) => {
       const score = (s: LocationSuggestion) => {
-        const l = s.label.toLowerCase();
+        const l = fold(s.label);
         if (l.startsWith(q)) return 0;
         if (l.split(/[\s,]+/).some((part) => part.startsWith(q))) return 1;
         return 2;
@@ -139,10 +159,22 @@ export function LocationSearchInput({
   const blurTimer = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const [menuBox, setMenuBox] = useState<{
+    left: number;
+    width: number;
+    maxHeight: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
 
   const local = useMemo(
-    () => buildCatalogSuggestions(catalog, value),
+    () =>
+      mergeSuggestions(
+        buildCatalogSuggestions(catalog, value),
+        suggestSpanishPlaces(value),
+      ),
     [catalog, value],
   );
 
@@ -202,6 +234,45 @@ export function LocationSearchInput({
       abortRef.current?.abort();
     };
   }, [value, lang]);
+
+  const showList = open && (suggestions.length > 0 || loading);
+
+  useLayoutEffect(() => {
+    if (!showList) {
+      setMenuBox(null);
+      return;
+    }
+
+    const update = () => {
+      const el = fieldRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const gap = 6;
+      const padding = 8;
+      const below = window.innerHeight - r.bottom - gap - padding;
+      const above = r.top - gap - padding;
+      const preferDown = below >= 140 || below >= above;
+      const maxHeight = Math.max(96, Math.min(288, preferDown ? below : above));
+      setMenuBox(
+        preferDown
+          ? { left: r.left, width: r.width, maxHeight, top: r.bottom + gap }
+          : {
+              left: r.left,
+              width: r.width,
+              maxHeight,
+              bottom: window.innerHeight - r.top + gap,
+            },
+      );
+    };
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [showList, suggestions.length, value]);
 
   const kindLabel = (kind: LocationSuggestion["kind"]) => {
     if (kind === "city") return cityLabel;
@@ -307,6 +378,7 @@ export function LocationSearchInput({
   return (
     <div className={cn("relative", className)}>
       <div
+        ref={fieldRef}
         className={cn(
           "flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-pisome-border bg-white px-2.5 py-1.5 transition focus-within:border-pisome-blue focus-within:ring-2 focus-within:ring-pisome-blue/15",
           fieldClassName,
@@ -390,50 +462,60 @@ export function LocationSearchInput({
         />
       </div>
 
-      {open && (suggestions.length > 0 || loading) && (
-        <ul
-          ref={listRef}
-          id={listboxId}
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-72 overflow-auto rounded-xl border border-pisome-border bg-white shadow-lg shadow-pisome-navy/10"
-          role="listbox"
-        >
-          {suggestions.map((suggestion, index) => (
-            <li
-              key={`${suggestion.kind}-${suggestion.label}`}
-              id={`${listboxId}-option-${index}`}
-              role="option"
-              aria-selected={index === activeIndex}
-              data-suggestion-index={index}
-            >
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition",
-                  index === activeIndex
-                    ? "bg-pisome-alice"
-                    : "hover:bg-pisome-alice",
-                )}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => commitSuggestion(suggestion)}
+      {showList &&
+        menuBox &&
+        createPortal(
+          <ul
+            ref={listRef}
+            id={listboxId}
+            className="fixed z-[80] overflow-auto rounded-xl border border-pisome-border bg-white shadow-lg shadow-pisome-navy/10"
+            role="listbox"
+            style={{
+              left: menuBox.left,
+              width: menuBox.width,
+              maxHeight: menuBox.maxHeight,
+              top: menuBox.top,
+              bottom: menuBox.bottom,
+            }}
+          >
+            {suggestions.map((suggestion, index) => (
+              <li
+                key={`${suggestion.kind}-${suggestion.label}`}
+                id={`${listboxId}-option-${index}`}
+                role="option"
+                aria-selected={index === activeIndex}
+                data-suggestion-index={index}
               >
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-pisome-blue" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-pisome-navy">
-                    {suggestion.label}
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition",
+                    index === activeIndex
+                      ? "bg-pisome-alice"
+                      : "hover:bg-pisome-alice",
+                  )}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => commitSuggestion(suggestion)}
+                >
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-pisome-blue" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-pisome-navy">
+                      {suggestion.label}
+                    </span>
+                    <span className="block text-xs text-pisome-muted">
+                      {kindLabel(suggestion.kind)}
+                    </span>
                   </span>
-                  <span className="block text-xs text-pisome-muted">
-                    {kindLabel(suggestion.kind)}
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-          {loading && suggestions.length === 0 && (
-            <li className="px-3.5 py-2.5 text-sm text-pisome-muted">…</li>
-          )}
-        </ul>
-      )}
+                </button>
+              </li>
+            ))}
+            {loading && suggestions.length === 0 && (
+              <li className="px-3.5 py-2.5 text-sm text-pisome-muted">…</li>
+            )}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }
