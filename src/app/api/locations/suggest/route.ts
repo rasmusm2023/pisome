@@ -1,3 +1,4 @@
+import { suggestSpanishPlaces } from "@/lib/spanish-places";
 import { NextResponse } from "next/server";
 
 export type GeoSuggestion = {
@@ -73,6 +74,14 @@ function mapPhotonFeature(feature: PhotonFeature): GeoSuggestion | null {
 
   const osmValue = (p.osm_value ?? "").toLowerCase();
   const type = (p.type ?? "").toLowerCase();
+  if (
+    osmValue === "hamlet" ||
+    osmValue === "farm" ||
+    osmValue === "isolated_dwelling" ||
+    osmValue === "civil_parish"
+  ) {
+    return null;
+  }
   const city =
     p.city?.trim() ||
     p.locality?.trim() ||
@@ -214,8 +223,9 @@ async function suggestFromPhoton(q: string): Promise<GeoSuggestion[]> {
   // Over-fetch: many hits are outside Spain and get filtered out.
   url.searchParams.set("limit", "40");
   url.searchParams.set("lang", "default");
-  url.searchParams.set("lat", "40.4168");
-  url.searchParams.set("lon", "-3.7038");
+  url.searchParams.set("bbox", "-9.5,35.9,4.5,43.9");
+  url.searchParams.set("lat", "40.0");
+  url.searchParams.set("lon", "-3.7");
   url.searchParams.set("zoom", "5");
 
   const res = await fetch(url.toString(), {
@@ -268,8 +278,18 @@ export async function GET(req: Request) {
   }
 
   try {
-    let suggestions = await suggestFromPhoton(q);
-    if (suggestions.length < 3) {
+    const local = suggestSpanishPlaces(q).map((s) => ({
+      label: s.label,
+      kind: s.kind,
+      value: s.value,
+      city: s.city,
+    }));
+    let suggestions = dedupe(local, 8);
+    if (suggestions.length < 6) {
+      const photon = await suggestFromPhoton(q);
+      suggestions = dedupe([...suggestions, ...photon], 8);
+    }
+    if (suggestions.length < 6) {
       const extra = await suggestFromNominatim(q);
       suggestions = dedupe([...suggestions, ...extra], 8);
     }
