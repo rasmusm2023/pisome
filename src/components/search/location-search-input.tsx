@@ -183,10 +183,14 @@ export function LocationSearchInput({
     [local, remote],
   );
 
-  // Auto-select the first suggestion whenever the list changes so Enter commits immediately.
+  // Keep the top match selected while typing so Enter applies that exact suggestion.
   useEffect(() => {
-    setActiveIndex(suggestions.length > 0 && open ? 0 : -1);
-  }, [suggestions.length, open]);
+    if (!open || suggestions.length === 0) {
+      setActiveIndex(-1);
+      return;
+    }
+    setActiveIndex(0);
+  }, [open, suggestions]);
 
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return;
@@ -335,7 +339,7 @@ export function LocationSearchInput({
       e.preventDefault();
       setOpen(true);
       setActiveIndex((prev) => {
-        if (prev <= 0) return -1;
+        if (prev <= 0) return 0;
         return prev - 1;
       });
       return;
@@ -449,7 +453,6 @@ export function LocationSearchInput({
           onChange={(e) => {
             onChange(e.target.value);
             setOpen(true);
-            setActiveIndex(-1);
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => {
@@ -491,7 +494,7 @@ export function LocationSearchInput({
                   className={cn(
                     "flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition",
                     index === activeIndex
-                      ? "bg-pisome-alice"
+                      ? "bg-pisome-sky"
                       : "hover:bg-pisome-alice",
                   )}
                   onMouseDown={(e) => e.preventDefault()}
