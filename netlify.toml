@@ -1,5 +1,5 @@
 [build]
-  command = "npx prisma migrate deploy && npm run build"
+  command = "node scripts/prisma-migrate-deploy.mjs && npm run build"
   publish = ".next"
 
 [build.environment]
