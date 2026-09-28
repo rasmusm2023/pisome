@@ -67,7 +67,7 @@ Set these in Netlify → Site configuration → Environment variables:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only; needed if you seed from CI |
 | `DATABASE_URL` | Transaction pooler URI + `?pgbouncer=true` |
-| `DIRECT_URL` | Direct URI for migrations |
+| `DIRECT_URL` | Session pooler URI for migrations (port `5432`). Optional on Netlify: if unset, the migrate script derives it from `DATABASE_URL`. |
 
 `netlify.toml` runs `prisma migrate deploy` then the Next build. It does **not** seed.
 
