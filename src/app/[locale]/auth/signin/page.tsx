@@ -1,35 +1,61 @@
 "use client";
 
+import { AuthConfigMissing } from "@/components/auth/auth-config-missing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useRouter } from "@/i18n/navigation";
-import { signIn } from "next-auth/react";
+import { pathAfterLogin } from "@/lib/auth-redirect";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { Role } from "@/lib/types";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const t = useTranslations("auth");
   const tNav = useTranslations("nav");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  async function fetchRole(): Promise<Role> {
+    const res = await fetch("/api/me");
+    if (!res.ok) return "SEEKER";
+    const body = (await res.json()) as { role?: Role };
+    return body.role === "AGENT" || body.role === "ADMIN" ? body.role : "SEEKER";
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
-    setError(false);
-    const form = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: form.get("email"),
-      password: form.get("password"),
-      redirect: false,
-    });
-    setLoading(false);
-    if (res?.error) {
+    if (!isSupabaseConfigured()) {
       setError(true);
       return;
     }
-    router.push("/");
+    setLoading(true);
+    setError(false);
+    const form = new FormData(e.currentTarget);
+    const supabase = createSupabaseBrowserClient();
+    const { data, error: signError } = await supabase.auth.signInWithPassword({
+      email: String(form.get("email") ?? ""),
+      password: String(form.get("password") ?? ""),
+    });
+    setLoading(false);
+    if (signError || !data.user) {
+      setError(true);
+      return;
+    }
+
+    const next = pathAfterLogin(await fetchRole(), searchParams.get("callbackUrl"));
+    router.push(next);
     router.refresh();
   }
 
@@ -39,20 +65,21 @@ export default function SignInPage() {
         {t("title")}
       </h1>
       <p className="mt-2 text-sm text-pisome-muted">{t("demoHint")}</p>
+      <AuthConfigMissing />
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <Input
           name="email"
           type="email"
           required
-          placeholder={t("email")}
-          defaultValue="seeker@pisome.es"
+          autoComplete="email"
+          label={t("email")}
         />
         <Input
           name="password"
           type="password"
           required
-          placeholder={t("password")}
-          defaultValue="pisome123"
+          autoComplete="current-password"
+          label={t("password")}
         />
         <Button type="submit" className="w-full" disabled={loading}>
           {t("submit")}

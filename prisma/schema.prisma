@@ -4,18 +4,29 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id             String         @id @default(cuid())
+  /// Matches auth.users.id (Supabase Auth)
+  id             String         @id @db.Uuid
   email          String         @unique
   name           String
-  passwordHash   String?
   /// SEEKER | AGENT | ADMIN
   role           String         @default("SEEKER")
   phone          String?
+  firstName      String?
+  lastName       String?
+  agencyName     String?
+  licenseNumber  String?
+  city           String?
+  /// UNPAID | ACTIVE
+  planStatus     String         @default("UNPAID")
+  /// ESSENTIAL | PLUS | PREMIUM
+  planTier       String?
+  planExpiresAt  DateTime?
   locale         String         @default("es")
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -96,7 +107,7 @@ model Listing {
   attrs          String         @default("{}")
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  agentId        String?
+  agentId        String?        @db.Uuid
   agent          User?          @relation("ListingAgent", fields: [agentId], references: [id])
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id])
@@ -127,7 +138,7 @@ model ListingMedia {
 
 model SavedHome {
   id        String   @id @default(cuid())
-  userId    String
+  userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   listingId String
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
@@ -138,7 +149,7 @@ model SavedHome {
 
 model SavedSearch {
   id          String    @id @default(cuid())
-  userId      String
+  userId      String    @db.Uuid
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   city        String?
@@ -163,9 +174,9 @@ model Inquiry {
   id        String   @id @default(cuid())
   listingId String
   listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  senderId  String?
+  senderId  String?  @db.Uuid
   sender    User?    @relation("InquirySender", fields: [senderId], references: [id])
-  agentId   String?
+  agentId   String?  @db.Uuid
   agent     User?    @relation("InquiryAgent", fields: [agentId], references: [id])
   name      String
   email     String
@@ -197,7 +208,7 @@ model PackagePlan {
 
 model Order {
   id              String   @id @default(cuid())
-  userId          String
+  userId          String   @db.Uuid
   user            User     @relation(fields: [userId], references: [id])
   listingId       String?
   /// ESSENTIAL | PLUS | PREMIUM

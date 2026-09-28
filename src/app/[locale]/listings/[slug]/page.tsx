@@ -3,7 +3,7 @@ import { ListingGallery } from "@/components/listings/listing-gallery";
 import { ListingMap } from "@/components/listings/listing-map";
 import { ListingToolbar } from "@/components/listings/listing-toolbar";
 import { Badge } from "@/components/ui/badge";
-import { auth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 import { getListingBySlug, getPriceContext } from "@/lib/listings";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
@@ -21,12 +21,12 @@ export default async function ListingPage({
   const listing = await getListingBySlug(slug);
   if (!listing || listing.status !== "LIVE") notFound();
 
-  const session = await auth();
-  const saved = session?.user?.id
+  const user = await getSessionUser();
+  const saved = user
     ? await prisma.savedHome.findUnique({
         where: {
           userId_listingId: {
-            userId: session.user.id,
+            userId: user.id,
             listingId: listing.id,
           },
         },
@@ -193,8 +193,8 @@ export default async function ListingPage({
           >
             <InquiryForm
               listingId={listing.id}
-              defaultName={session?.user?.name}
-              defaultEmail={session?.user?.email}
+              defaultName={user?.name}
+              defaultEmail={user?.email}
             />
           </div>
         </aside>

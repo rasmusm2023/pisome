@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import type { PackageTier } from "../src/lib/types";
-import bcrypt from "bcryptjs";
+import { createSupabaseAdminClient } from "../src/lib/supabase/admin";
 import { generateFakeListings } from "./fake-listings";
 import type { SeedListing } from "./seed-types";
 
@@ -417,8 +417,43 @@ async function insertListing(
   });
 }
 
+async function ensureAuthUser(input: {
+  email: string;
+  password: string;
+  name: string;
+  intent: "seeker" | "agent";
+}) {
+  const admin = createSupabaseAdminClient();
+  const { data: list, error: listError } = await admin.auth.admin.listUsers({
+    perPage: 1000,
+  });
+  if (listError) throw listError;
+
+  const existing = list.users.find((user) => user.email === input.email);
+  if (existing) {
+    await admin.auth.admin.deleteUser(existing.id);
+  }
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { name: input.name, intent: input.intent },
+  });
+  if (error || !data.user) {
+    throw error ?? new Error(`Could not create ${input.email}`);
+  }
+  return data.user;
+}
+
 async function main() {
   console.log("Seeding Pisome…");
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before seeding.",
+    );
+  }
 
   await prisma.inquiry.deleteMany();
   await prisma.savedHome.deleteMany();
@@ -441,24 +476,61 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash("pisome123", 10);
+  const agentAuth = await ensureAuthUser({
+    email: "agent@pisome.es",
+    password: "pisome123",
+    name: "Elena Nordström",
+    intent: "agent",
+  });
+  const seekerAuth = await ensureAuthUser({
+    email: "seeker@pisome.es",
+    password: "pisome123",
+    name: "Alex Seeker",
+    intent: "seeker",
+  });
 
-  const agent = await prisma.user.create({
-    data: {
+  const agent = await prisma.user.upsert({
+    where: { id: agentAuth.id },
+    create: {
+      id: agentAuth.id,
       email: "agent@pisome.es",
       name: "Elena Nordström",
-      passwordHash,
+      firstName: "Elena",
+      lastName: "Nordström",
       role: "AGENT",
       phone: "+34 600 111 222",
+      agencyName: "Nordic Homes España",
+      licenseNumber: "API-M-2847",
+      city: "Madrid",
+      planStatus: "ACTIVE",
+      planTier: "PREMIUM",
+      organizationId: org.id,
+    },
+    update: {
+      name: "Elena Nordström",
+      firstName: "Elena",
+      lastName: "Nordström",
+      role: "AGENT",
+      phone: "+34 600 111 222",
+      agencyName: "Nordic Homes España",
+      licenseNumber: "API-M-2847",
+      city: "Madrid",
+      planStatus: "ACTIVE",
+      planTier: "PREMIUM",
       organizationId: org.id,
     },
   });
 
-  await prisma.user.create({
-    data: {
+  await prisma.user.upsert({
+    where: { id: seekerAuth.id },
+    create: {
+      id: seekerAuth.id,
       email: "seeker@pisome.es",
       name: "Alex Seeker",
-      passwordHash,
+      role: "SEEKER",
+    },
+    update: {
+      name: "Alex Seeker",
       role: "SEEKER",
     },
   });

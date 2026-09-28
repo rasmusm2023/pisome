@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useRouter } from "@/i18n/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { Heart } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -15,6 +15,7 @@ export function SaveButton({
 }) {
   const t = useTranslations("cta");
   const router = useRouter();
+  const pathname = usePathname();
   const [saved, setSaved] = useState(initialSaved);
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +28,7 @@ export function SaveButton({
     });
     setLoading(false);
     if (res.status === 401) {
-      router.push("/auth/signin");
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
     if (res.ok) setSaved(!saved);

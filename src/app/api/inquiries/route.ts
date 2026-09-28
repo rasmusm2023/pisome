@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
+  const user = await getSessionUser();
   const body = schema.parse(await req.json());
 
   const listing = await prisma.listing.findUnique({
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     data: {
       listingId: listing.id,
       agentId: listing.agentId,
-      senderId: session?.user?.id,
+      senderId: user?.id,
       name: body.name,
       email: body.email,
       phone: body.phone,
@@ -40,14 +40,17 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if ((user.role === "AGENT" || user.role === "ADMIN") && !user.subscribed) {
+    return NextResponse.json([]);
   }
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
-      OR: [{ agentId: session.user.id }, { listing: { agentId: session.user.id } }],
+      OR: [{ agentId: user.id }, { listing: { agentId: user.id } }],
     },
     include: {
       listing: { select: { id: true, title: true, slug: true } },
@@ -59,9 +62,12 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.subscribed) {
+    return NextResponse.json({ error: "subscription_required" }, { status: 402 });
   }
   const body = z
     .object({
@@ -71,7 +77,7 @@ export async function PATCH(req: Request) {
     .parse(await req.json());
 
   const inquiry = await prisma.inquiry.findFirst({
-    where: { id: body.id, OR: [{ agentId: session.user.id }, { listing: { agentId: session.user.id } }] },
+    where: { id: body.id, OR: [{ agentId: user.id }, { listing: { agentId: user.id } }] },
   });
   if (!inquiry) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

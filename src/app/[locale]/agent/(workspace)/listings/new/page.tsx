@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  LockedWorkspaceNotice,
+  useAgentWorkspace,
+} from "@/components/agent/workspace-lock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -20,6 +24,7 @@ const DEFAULT_PHOTOS = [
 export default function NewListingPage() {
   const t = useTranslations();
   const router = useRouter();
+  const { unlocked } = useAgentWorkspace();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -84,7 +89,11 @@ export default function NewListingPage() {
     setLoading(false);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Error");
+      setError(
+        body.error === "subscription_required"
+          ? t("agent.subscriptionRequired")
+          : (body.error ?? "Error"),
+      );
       return;
     }
     router.push("/agent");
@@ -98,17 +107,24 @@ export default function NewListingPage() {
       </h1>
       <p className="mt-2 text-sm text-pisome-muted">{t("agent.mediaHint")}</p>
 
+      {!unlocked ? (
+        <LockedWorkspaceNotice
+          title={t("agent.paywallPublishTitle")}
+          body={t("agent.paywallPublishBody")}
+        />
+      ) : null}
+
       <form id="listing-form" className="mt-8 space-y-4">
-        <Input name="title" required placeholder="Title (ES)" />
-        <Input name="titleEn" placeholder="Title (EN)" />
+        <Input name="title" required label={t("agent.fields.titleEs")} />
+        <Input name="titleEn" label={t("agent.fields.titleEn")} />
         <Textarea
           name="description"
           required
-          placeholder="Description (ES) — min 20 chars"
+          label={t("agent.fields.descriptionEs")}
         />
-        <Textarea name="descriptionEn" placeholder="Description (EN)" />
+        <Textarea name="descriptionEn" label={t("agent.fields.descriptionEn")} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Select name="propertyType" defaultValue="APARTMENT">
+          <Select name="propertyType" defaultValue="APARTMENT" label={t("search.type")}>
             {Object.entries({
               APARTMENT: t("propertyTypes.APARTMENT"),
               HOUSE: t("propertyTypes.HOUSE"),
@@ -122,13 +138,25 @@ export default function NewListingPage() {
               </option>
             ))}
           </Select>
-          <Input name="price" type="number" required placeholder="Price €" />
-          <Input name="rooms" type="number" required defaultValue={3} />
-          <Input name="bathrooms" type="number" required defaultValue={2} />
-          <Input name="areaM2" type="number" required placeholder="m²" />
-          <Input name="floor" type="number" placeholder="Floor" />
-          <Input name="yearBuilt" type="number" placeholder="Year built" />
-          <Select name="energyCert" defaultValue="C">
+          <Input name="price" type="number" required label={t("agent.fields.price")} />
+          <Input
+            name="rooms"
+            type="number"
+            required
+            defaultValue={3}
+            label={t("search.rooms")}
+          />
+          <Input
+            name="bathrooms"
+            type="number"
+            required
+            defaultValue={2}
+            label={t("search.bathrooms")}
+          />
+          <Input name="areaM2" type="number" required label={t("agent.fields.area")} />
+          <Input name="floor" type="number" label={t("agent.fields.floor")} />
+          <Input name="yearBuilt" type="number" label={t("agent.fields.yearBuilt")} />
+          <Select name="energyCert" defaultValue="C" label={t("search.energy")}>
             {["A", "B", "C", "D", "E", "F", "G", "PENDING"].map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -137,19 +165,24 @@ export default function NewListingPage() {
           </Select>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input name="address" required placeholder="Address" />
-          <Input name="neighborhood" required placeholder="Neighborhood" />
-          <Select name="city" defaultValue="Madrid">
+          <Input name="address" required label={t("agent.fields.address")} />
+          <Input name="neighborhood" required label={t("agent.fields.neighborhood")} />
+          <Select name="city" defaultValue="Madrid" label={t("search.city")}>
             {LAUNCH_CITIES.map((c) => (
               <option key={c.slug} value={c.name}>
                 {c.name}
               </option>
             ))}
           </Select>
-          <Input name="province" required defaultValue="Madrid" />
-          <Input name="postalCode" placeholder="Postal code" />
-          <Input name="lat" type="number" step="any" placeholder="Lat" />
-          <Input name="lng" type="number" step="any" placeholder="Lng" />
+          <Input
+            name="province"
+            required
+            defaultValue="Madrid"
+            label={t("agent.fields.province")}
+          />
+          <Input name="postalCode" label={t("agent.fields.postalCode")} />
+          <Input name="lat" type="number" step="any" label={t("agent.fields.lat")} />
+          <Input name="lng" type="number" step="any" label={t("agent.fields.lng")} />
         </div>
         <div className="flex flex-wrap gap-4 text-sm text-pisome-muted">
           {["hasElevator", "hasParking", "hasTerrace", "hasPool", "isNewBuild"].map(
@@ -165,14 +198,14 @@ export default function NewListingPage() {
           name="mediaUrls"
           required
           defaultValue={DEFAULT_PHOTOS.join("\n")}
-          placeholder="Photo URLs (one per line)"
+          label={t("agent.fields.photoUrls")}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex flex-wrap gap-3 pt-2">
           <Button
             type="button"
             variant="outline"
-            disabled={loading}
+            disabled={loading || !unlocked}
             onClick={() => submit(false)}
           >
             {t("agent.saveDraft")}
@@ -180,7 +213,7 @@ export default function NewListingPage() {
           <Button
             type="button"
             variant="accent"
-            disabled={loading}
+            disabled={loading || !unlocked}
             onClick={() => submit(true)}
           >
             {t("agent.publish")}

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { PACKAGE_PRICES } from "@/lib/packages";
 import type { PackageTier } from "@/lib/types";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -19,22 +20,19 @@ export default function PackagesPage() {
 
 function PackagesInner() {
   const t = useTranslations("packages");
+  const router = useRouter();
   const searchParams = useSearchParams();
   const listingId = searchParams.get("listingId");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
 
   async function select(tier: PackageTier) {
-    if (!listingId) {
-      setMessage("Open packages from a listing on the agent dashboard.");
-      return;
-    }
     setLoading(tier);
     setMessage(null);
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listingId, tier }),
+      body: JSON.stringify({ listingId: listingId || undefined, tier }),
     });
     const data = await res.json();
     setLoading(null);
@@ -44,6 +42,7 @@ function PackagesInner() {
     }
     if (data.demo) {
       setMessage(t("demoCheckout"));
+      router.refresh();
       return;
     }
     setMessage(data.error ?? "Error");
@@ -55,10 +54,10 @@ function PackagesInner() {
         {t("title")}
       </h1>
       <p className="mt-2 max-w-xl text-pisome-muted">{t("subtitle")}</p>
-      {!listingId && (
-        <p className="mt-4 text-sm text-pisome-accent">
-          Select a listing from the dashboard to upgrade.
-        </p>
+      {listingId ? (
+        <p className="mt-4 text-sm text-pisome-accent">{t("listingUpgrade")}</p>
+      ) : (
+        <p className="mt-4 text-sm text-pisome-muted">{t("workspaceHint")}</p>
       )}
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">

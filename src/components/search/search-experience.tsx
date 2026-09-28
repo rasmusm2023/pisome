@@ -365,7 +365,7 @@ export function SearchExperience({
       }),
     });
     if (res.status === 401) {
-      router.push("/auth/signin");
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
     setSaveMsg(res.ok ? t("search.saveSearchDone") : t("search.saveSearchError"));

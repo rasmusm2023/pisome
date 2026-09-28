@@ -1,17 +1,10 @@
 [build]
-  # Prisma SQLite paths are relative to prisma/schema.prisma, so ./deploy.db
-  # creates prisma/deploy.db (not prisma/prisma/deploy.db).
-  command = "npx prisma db push && npm run db:seed && test -f prisma/deploy.db && npm run build"
+  command = "npx prisma migrate deploy && npm run build"
   publish = ".next"
 
 [build.environment]
-  DATABASE_URL = "file:./deploy.db"
   NEXT_TELEMETRY_DISABLED = "1"
   NODE_VERSION = "20"
-
-# Bundle the seeded DB into serverless functions for runtime /tmp copy.
-[functions]
-  included_files = ["prisma/deploy.db"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

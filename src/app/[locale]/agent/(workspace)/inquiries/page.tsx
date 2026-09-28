@@ -1,6 +1,7 @@
+import { LockedWorkspaceNotice } from "@/components/agent/workspace-lock";
 import { Badge } from "@/components/ui/badge";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/session";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { MarkInquiryButton } from "@/components/agent/mark-inquiry-button";
@@ -13,15 +14,27 @@ export default async function InquiriesPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("agent");
-  const session = await auth();
-  if (!session?.user?.id) redirect(`/${locale}/auth/signin`);
-  if (session.user.role !== "AGENT" && session.user.role !== "ADMIN") {
-    redirect(`/${locale}/agent`);
+  const user = await getSessionUser();
+  if (!user) redirect(`/${locale}/auth/signin?callbackUrl=/agent/inquiries`);
+
+  if (!user.subscribed) {
+    return (
+      <div>
+        <h1 className="font-display text-3xl font-semibold text-pisome-navy">
+          {t("inquiries")}
+        </h1>
+        <p className="mt-1 text-sm text-pisome-muted">{t("replySla")}</p>
+        <LockedWorkspaceNotice
+          title={t("paywallInboxTitle")}
+          body={t("paywallInboxBody")}
+        />
+      </div>
+    );
   }
 
   const inquiries = await prisma.inquiry.findMany({
     where: {
-      OR: [{ agentId: session.user.id }, { listing: { agentId: session.user.id } }],
+      OR: [{ agentId: user.id }, { listing: { agentId: user.id } }],
     },
     include: {
       listing: { select: { title: true, slug: true, address: true } },

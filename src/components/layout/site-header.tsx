@@ -1,23 +1,26 @@
 "use client";
 
 import { Logo } from "@/components/brand/logo";
+import { useCurrentUser } from "@/components/providers";
 import { Button } from "@/components/ui/button";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Heart, HousePlus, Menu, Search, X } from "lucide-react";
+import { Heart, HousePlus, LayoutDashboard, Menu, Search, UserRound, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const t = useTranslations();
   const locale = useLocale();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const router = useRouter();
+  const user = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const otherLocale = locale === "es" ? "en" : "es";
   const inverted = overlay && !scrolled && !open;
+  const isAgent = user?.role === "AGENT" || user?.role === "ADMIN";
 
   useEffect(() => {
     if (!overlay) {
@@ -32,9 +35,26 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
   const links = [
     { href: "/search", label: t("nav.search"), icon: Search },
-    { href: "/saved", label: t("nav.saved"), icon: Heart },
-    { href: "/agent", label: t("nav.list"), icon: HousePlus },
+    ...(user && !isAgent
+      ? [{ href: "/account", label: t("nav.account"), icon: Heart }]
+      : []),
+    ...(!user
+      ? [{ href: "/auth/signup", label: t("nav.list"), icon: HousePlus }]
+      : []),
+    ...(isAgent
+      ? [{ href: "/agent", label: t("nav.agent"), icon: LayoutDashboard }]
+      : []),
   ];
+
+  async function handleSignOut() {
+    if (isSupabaseConfigured()) {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    }
+    setOpen(false);
+    router.push("/");
+    router.refresh();
+  }
 
   return (
     <header
@@ -90,9 +110,9 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           >
             {otherLocale}
           </Link>
-          {session?.user ? (
+          {user ? (
             <>
-              {(session.user.role === "AGENT" || session.user.role === "ADMIN") && (
+              {isAgent ? (
                 <Link href="/agent">
                   <Button
                     variant="ghost"
@@ -102,16 +122,17 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                     {t("nav.agent")}
                   </Button>
                 </Link>
+              ) : (
+                <Link href="/account" aria-label={t("nav.account")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={inverted ? "text-white hover:bg-white/10" : undefined}
+                  >
+                    <UserRound className="h-4 w-4" />
+                  </Button>
+                </Link>
               )}
-              <Link href="/saved" aria-label={t("nav.saved")}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={inverted ? "text-white hover:bg-white/10" : undefined}
-                >
-                  <Heart className="h-4 w-4" />
-                </Button>
-              </Link>
               <Button
                 variant="outline"
                 size="sm"
@@ -120,7 +141,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                     ? "border-white/30 bg-white/10 text-white hover:bg-white/20"
                     : undefined
                 }
-                onClick={() => signOut()}
+                onClick={handleSignOut}
               >
                 {t("nav.signOut")}
               </Button>
@@ -182,10 +203,10 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             >
               {otherLocale}
             </Link>
-            {session?.user ? (
+            {user ? (
               <button
                 className="rounded-lg px-3 py-3 text-left text-sm font-medium text-pisome-navy"
-                onClick={() => signOut()}
+                onClick={handleSignOut}
               >
                 {t("nav.signOut")}
               </button>

@@ -1,4 +1,16 @@
 export type Role = "SEEKER" | "AGENT" | "ADMIN";
+
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  organizationId: string | null;
+  planStatus: string;
+  planTier: string | null;
+  planExpiresAt: string | null;
+  subscribed: boolean;
+};
 export type ListingPurpose = "SALE" | "RENT";
 export type PropertyType =
   | "APARTMENT"

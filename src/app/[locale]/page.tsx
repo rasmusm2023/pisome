@@ -7,6 +7,7 @@ import {
   getMarketplacePulse,
   searchListings,
 } from "@/lib/listings";
+import { getSessionUser } from "@/lib/session";
 import { LAUNCH_CITIES } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -23,11 +24,18 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
-  const [catalog, pulse, latest] = await Promise.all([
+  const [catalog, pulse, latest, user] = await Promise.all([
     getFilterCatalog(),
     getMarketplacePulse(),
     searchListings({ sort: "featured", take: 8 }),
+    getSessionUser(),
   ]);
+  const listHref =
+    user?.role === "AGENT" || user?.role === "ADMIN"
+      ? "/agent"
+      : user
+        ? "/account"
+        : "/auth/signup";
 
   return (
     <div>
@@ -132,7 +140,7 @@ export default async function HomePage({
               {t("home.sellBody")}
             </p>
           </div>
-          <Link href="/agent">
+          <Link href={listHref}>
             <Button size="lg" variant="primary">
               {t("cta.listHome")}
               <ArrowRight className="h-4 w-4" />
