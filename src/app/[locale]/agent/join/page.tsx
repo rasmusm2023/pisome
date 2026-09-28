@@ -4,6 +4,8 @@ import { AuthConfigMissing } from "@/components/auth/auth-config-missing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useRouter } from "@/i18n/navigation";
+import { PhoneInputRow } from "@/components/ui/phone-country-field";
+import { readSignupPhone } from "@/lib/phone";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -29,7 +31,7 @@ export default function AgentJoinPage() {
     const emailConfirm = String(form.get("emailConfirm") ?? "").trim();
     const password = String(form.get("password") ?? "");
     const passwordConfirm = String(form.get("passwordConfirm") ?? "");
-    const phone = String(form.get("phone") ?? "");
+    const phone = readSignupPhone(form);
     const agencyName = String(form.get("agencyName") ?? "");
     const city = String(form.get("city") ?? "");
     const licenseNumber = String(form.get("licenseNumber") ?? "");
@@ -41,6 +43,10 @@ export default function AgentJoinPage() {
     }
     if (password !== passwordConfirm) {
       setError(t("passwordMismatch"));
+      return;
+    }
+    if (!phone) {
+      setError(t("phoneInvalid"));
       return;
     }
     if (!confirmAgent) {
@@ -188,13 +194,7 @@ export default function AgentJoinPage() {
               autoComplete="new-password"
               label={t("passwordConfirm")}
             />
-            <Input
-              name="phone"
-              type="tel"
-              required
-              autoComplete="tel"
-              label={t("phone")}
-            />
+            <PhoneInputRow phoneLabel={t("phone")} countryLabel={t("phoneCountry")} />
             <Input
               name="agencyName"
               type="text"

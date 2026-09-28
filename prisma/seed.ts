@@ -527,11 +527,21 @@ async function main() {
       id: seekerAuth.id,
       email: "seeker@pisome.es",
       name: "Alex Seeker",
+      firstName: "Alex",
+      lastName: "Seeker",
       role: "SEEKER",
+      phone: "+34 600 000 111",
+      city: "Madrid",
+      intent: "BUY",
     },
     update: {
       name: "Alex Seeker",
+      firstName: "Alex",
+      lastName: "Seeker",
       role: "SEEKER",
+      phone: "+34 600 000 111",
+      city: "Madrid",
+      intent: "BUY",
     },
   });
 
