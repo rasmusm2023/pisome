@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Link, useRouter } from "@/i18n/navigation";
 import { PhoneInputRow } from "@/components/ui/phone-country-field";
 import { readSignupPhone } from "@/lib/phone";
+import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
