@@ -22,6 +22,8 @@ model User {
   agencyName     String?
   licenseNumber  String?
   city           String?
+  /// BUY | SELL | BOTH — personal accounts; agents leave null
+  intent         String?
   /// UNPAID | ACTIVE
   planStatus     String         @default("UNPAID")
   /// ESSENTIAL | PLUS | PREMIUM

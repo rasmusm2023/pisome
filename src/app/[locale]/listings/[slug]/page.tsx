@@ -195,6 +195,7 @@ export default async function ListingPage({
               listingId={listing.id}
               defaultName={user?.name}
               defaultEmail={user?.email}
+              defaultPhone={user?.phone ?? undefined}
             />
           </div>
         </aside>

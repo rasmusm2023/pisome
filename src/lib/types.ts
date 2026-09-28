@@ -1,10 +1,12 @@
 export type Role = "SEEKER" | "AGENT" | "ADMIN";
+export type SeekerIntent = "BUY" | "SELL" | "BOTH";
 
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
   role: Role;
+  phone: string | null;
   organizationId: string | null;
   planStatus: string;
   planTier: string | null;

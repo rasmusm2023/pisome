@@ -10,10 +10,12 @@ export function InquiryForm({
   listingId,
   defaultName,
   defaultEmail,
+  defaultPhone,
 }: {
   listingId: string;
   defaultName?: string;
   defaultEmail?: string;
+  defaultPhone?: string;
 }) {
   const t = useTranslations();
   const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
@@ -59,7 +61,7 @@ export function InquiryForm({
         label={t("inquiry.email")}
         defaultValue={defaultEmail}
       />
-      <Input name="phone" label={t("inquiry.phone")} />
+      <Input name="phone" label={t("inquiry.phone")} defaultValue={defaultPhone} />
       <Textarea
         name="message"
         required
