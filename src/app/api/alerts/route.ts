@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { serializeDrawnArea } from "@/lib/geo";
 import { NextResponse } from "next/server";
@@ -21,15 +21,15 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = schema.parse(await req.json());
   const alert = await prisma.savedSearch.create({
     data: {
-      userId: session.user.id,
+      userId: user.id,
       name: body.name,
       city: body.city,
       minPrice: body.minPrice,
@@ -48,13 +48,13 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const alerts = await prisma.savedSearch.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(alerts);

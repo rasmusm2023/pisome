@@ -49,20 +49,21 @@ export function InquiryForm({
         id="inquiry-name"
         name="name"
         required
-        placeholder={t("inquiry.name")}
+        label={t("inquiry.name")}
         defaultValue={defaultName}
       />
       <Input
         name="email"
         type="email"
         required
-        placeholder={t("inquiry.email")}
+        label={t("inquiry.email")}
         defaultValue={defaultEmail}
       />
-      <Input name="phone" placeholder={t("inquiry.phone")} />
+      <Input name="phone" label={t("inquiry.phone")} />
       <Textarea
         name="message"
         required
+        label={t("inquiry.message")}
         defaultValue={t("inquiry.defaultMessage")}
       />
       <Button type="submit" className="w-full" disabled={loading}>

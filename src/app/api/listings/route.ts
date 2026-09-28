@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { MIN_PHOTOS, slugify } from "@/lib/utils";
 import { NextResponse } from "next/server";
@@ -45,13 +45,16 @@ const listingSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.subscribed) {
+    return NextResponse.json([]);
   }
 
   const listings = await prisma.listing.findMany({
-    where: { agentId: session.user.id },
+    where: { agentId: user.id },
     include: {
       media: { orderBy: { sortOrder: "asc" }, take: 1 },
       _count: { select: { inquiries: true, savedHomes: true } },
@@ -63,12 +66,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "AGENT" && session.user.role !== "ADMIN") {
+  if (user.role !== "AGENT" && user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!user.subscribed) {
+    return NextResponse.json({ error: "subscription_required" }, { status: 402 });
   }
 
   const body = listingSchema.parse(await req.json());
@@ -113,8 +119,8 @@ export async function POST(req: Request) {
       lat: body.lat,
       lng: body.lng,
       publishedAt: publish ? new Date() : null,
-      agentId: session.user.id,
-      organizationId: session.user.organizationId,
+      agentId: user.id,
+      organizationId: user.organizationId,
       media: {
         create: body.mediaUrls.map((url, i) => ({
           url,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Logo } from "@/components/brand/logo";
+import { useCurrentUser } from "@/components/providers";
 import { Link, usePathname } from "@/i18n/navigation";
 import { LAUNCH_CITIES } from "@/lib/utils";
 import { Mail } from "lucide-react";
@@ -46,8 +47,10 @@ export function SiteFooter() {
   const t = useTranslations();
   const locale = useLocale();
   const pathname = usePathname();
+  const user = useCurrentUser();
   const year = new Date().getFullYear();
   const email = t("footer.email");
+  const isAgent = user?.role === "AGENT" || user?.role === "ADMIN";
 
   return (
     <footer className="mt-auto border-t border-white/10 bg-[#081628] text-white">
@@ -86,33 +89,68 @@ export function SiteFooter() {
 
           <div className="md:col-span-3 lg:col-span-2">
             <FooterColumn title={t("footer.sell")}>
-              <li>
-                <FooterLink href="/agent/listings/new">
-                  {t("cta.listHome")}
-                </FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/agent/packages">
-                  {t("footer.packages")}
-                </FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/agent">{t("nav.agent")}</FooterLink>
-              </li>
+              {isAgent ? (
+                <>
+                  <li>
+                    <FooterLink href="/agent/listings/new">
+                      {t("cta.listHome")}
+                    </FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/agent/packages">
+                      {t("footer.packages")}
+                    </FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/agent">{t("nav.agent")}</FooterLink>
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li>
+                    <FooterLink href="/auth/signup">{t("cta.listHome")}</FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/auth/signup">
+                      {t("footer.packages")}
+                    </FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/auth/signup">{t("nav.agent")}</FooterLink>
+                  </li>
+                </>
+              )}
             </FooterColumn>
           </div>
 
           <div className="md:col-span-3 lg:col-span-2">
             <FooterColumn title={t("footer.account")}>
-              <li>
-                <FooterLink href="/saved">{t("nav.saved")}</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/auth/signin">{t("nav.signIn")}</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/auth/signup">{t("nav.signUp")}</FooterLink>
-              </li>
+              {user ? (
+                <>
+                  <li>
+                    <FooterLink href={isAgent ? "/agent" : "/account"}>
+                      {isAgent ? t("nav.agent") : t("nav.account")}
+                    </FooterLink>
+                  </li>
+                  {!isAgent && (
+                    <li>
+                      <FooterLink href="/account">{t("nav.saved")}</FooterLink>
+                    </li>
+                  )}
+                </>
+              ) : (
+                <>
+                  <li>
+                    <FooterLink href="/auth/signin">{t("nav.signIn")}</FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/auth/signup">{t("nav.signUp")}</FooterLink>
+                  </li>
+                  <li>
+                    <FooterLink href="/auth/signup">{t("auth.imAgent")}</FooterLink>
+                  </li>
+                </>
+              )}
             </FooterColumn>
           </div>
 
